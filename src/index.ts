@@ -4,7 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import { z } from 'zod';
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
-import { MCPMetaServer } from './mcp-meta-server.js';
+import { BridgeToolRegistry } from './bridge-tool-registry.js';
 import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
 
@@ -15,9 +15,9 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Initialize MCP Bridge Manager and Meta Server
+// Initialize MCP Bridge Manager and Tool Registry
 const mcpManager = new MCPBridgeManager();
-const metaServer = new MCPMetaServer(mcpManager);
+const toolRegistry = new BridgeToolRegistry(mcpManager);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -145,14 +145,14 @@ async function startServer() {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   logger.info('Shutting down MCP Bridge Server...');
-  await metaServer.shutdown();
+  await toolRegistry.shutdown();
   await mcpManager.shutdown();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   logger.info('Shutting down MCP Bridge Server...');
-  await metaServer.shutdown();
+  await toolRegistry.shutdown();
   await mcpManager.shutdown();
   process.exit(0);
 });

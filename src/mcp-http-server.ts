@@ -301,7 +301,7 @@ export class MCPHttpServer {
               
               // MCPMetaServerへの呼び出しを作成
               const toolRegistrationResult = await this.mcpManager.callTool(
-                'mcp-bridge-meta',
+                'bridge-tool-registry',
                 'register_direct_tool',
                 { serverId, toolName: originalToolName, newName: toolName }
               );
@@ -337,7 +337,7 @@ export class MCPHttpServer {
               
               // MCPMetaServerに中継
               const unregisterResult = await this.mcpManager.callTool(
-                'mcp-bridge-meta',
+                'bridge-tool-registry',
                 'unregister_direct_tool',
                 { toolName }
               );
@@ -368,7 +368,7 @@ export class MCPHttpServer {
               
               // MCPMetaServerに中継
               const listResult = await this.mcpManager.callTool(
-                'mcp-bridge-meta',
+                'bridge-tool-registry',
                 'list_registered_tools',
                 {}
               );

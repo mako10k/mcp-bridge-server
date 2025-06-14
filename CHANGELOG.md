@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove legacy tool schema definitions from API surface
 
 ### Changed
+- Rename `MCPMetaServer` to `BridgeToolRegistry` for better clarity and to avoid confusion
+- Update internal references from `mcp-bridge-meta` to `bridge-tool-registry`
 - Update documentation to reflect current API design
 - Standardize on explicit `serverId` and `toolName` parameters throughout codebase
 - Ensure tool schema definitions match actual implementation
