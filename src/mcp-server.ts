@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
-import { MCPMetaServer } from './mcp-meta-server.js';
+import { BridgeToolRegistry } from './bridge-tool-registry.js';
 import { logger } from './utils/logger.js';
 
 async function startMCPServer() {
@@ -10,23 +10,23 @@ async function startMCPServer() {
     const mcpManager = new MCPBridgeManager();
     await mcpManager.initialize();
     
-    // Initialize MCP Meta Server
-    const metaServer = new MCPMetaServer(mcpManager);
+    // Initialize Bridge Tool Registry
+    const toolRegistry = new BridgeToolRegistry(mcpManager);
     
     // Start stdio server
-    await metaServer.startStdioServer();
+    await toolRegistry.startStdioServer();
     
     // Graceful shutdown
     process.on('SIGINT', async () => {
-      logger.info('Shutting down MCP Meta Server...');
-      await metaServer.shutdown();
+      logger.info('Shutting down Bridge Tool Registry...');
+      await toolRegistry.shutdown();
       await mcpManager.shutdown();
       process.exit(0);
     });
 
     process.on('SIGTERM', async () => {
-      logger.info('Shutting down MCP Meta Server...');
-      await metaServer.shutdown();
+      logger.info('Shutting down Bridge Tool Registry...');
+      await toolRegistry.shutdown();
       await mcpManager.shutdown();
       process.exit(0);
     });

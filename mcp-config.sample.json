@@ -1,0 +1,68 @@
+{
+  "servers": [
+    {
+      "name": "filesystem-stdio",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${HOME}/data"],
+      "env": {
+        "DEBUG": "${DEBUG_LEVEL:-false}",
+        "LOG_LEVEL": "${LOG_LEVEL:-info}"
+      },
+      "enabled": true,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    },
+    {
+      "name": "example-sse-server",
+      "transport": "sse",
+      "url": "http://localhost:3001/sse",
+      "headers": {
+        "Authorization": "Bearer ${SSE_API_TOKEN:-example-token}",
+        "X-Client-Version": "1.0.0"
+      },
+      "enabled": false,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    },
+    {
+      "name": "example-http-server",
+      "transport": "http", 
+      "url": "http://localhost:3002/mcp",
+      "headers": {
+        "Authorization": "Bearer ${HTTP_API_TOKEN:-example-token}",
+        "Content-Type": "application/json"
+      },
+      "enabled": false,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    },
+    {
+      "name": "git-server",
+      "transport": "stdio",
+      "command": "npm",
+      "args": [
+        "exec",
+        "git-mcp-server"
+      ],
+      "env": {
+        "GIT_DEFAULT_PATH": "${HOME}",
+        "GIT_MAX_MEMORY": "1024",
+        "GIT_CACHE_TTL": "300",
+        "GIT_LOG_LEVEL": "${LOG_LEVEL:-info}"
+      },
+      "enabled": false,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    }
+  ],
+  "global": {
+    "logLevel": "${LOG_LEVEL:-info}",
+    "maxConcurrentConnections": 10,
+    "requestTimeout": 30000
+  }
+}

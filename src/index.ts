@@ -4,7 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import { z } from 'zod';
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
-import { MCPMetaServer } from './mcp-meta-server.js';
+import { BridgeToolRegistry } from './bridge-tool-registry.js';
 import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
 
@@ -15,9 +15,11 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Initialize MCP Bridge Manager and Meta Server
+// Initialize MCP Bridge Manager and Tool Registry
 const mcpManager = new MCPBridgeManager();
-const metaServer = new MCPMetaServer(mcpManager);
+const toolRegistry = new BridgeToolRegistry(mcpManager);
+// ツールレジストリへの参照を設定
+mcpManager.setToolRegistry(toolRegistry);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -88,23 +90,8 @@ app.post('/mcp/servers/:serverId/tools/call', async (req, res) => {
   }
 });
 
-// Call a tool using namespaced name (serverId:toolName)
-const CallNamespacedToolSchema = z.object({
-  name: z.string().regex(/^[^:]+:[^:]+$/, 'Tool name must be in format "serverId:toolName"'),
-  arguments: z.record(z.any()).optional().default({})
-});
-
-app.post('/mcp/tools/call', async (req, res) => {
-  try {
-    const { name, arguments: toolArgs } = CallNamespacedToolSchema.parse(req.body);
-    
-    const result = await mcpManager.callToolByNamespace(name, toolArgs);
-    res.json({ result });
-  } catch (error) {
-    logger.error(`Error calling namespaced tool:`, error);
-    res.status(500).json({ error: 'Failed to call tool' });
-  }
-});
+// 古いAPI '/mcp/tools/call'は削除されました - v1.2.1から非推奨
+// 代わりに '/mcp/servers/:serverId/tools/call' エンドポイント、または直接登録されたツールを使用してください
 
 // List resources from a specific MCP server
 app.get('/mcp/servers/:serverId/resources', async (req, res) => {
@@ -160,14 +147,14 @@ async function startServer() {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   logger.info('Shutting down MCP Bridge Server...');
-  await metaServer.shutdown();
+  await toolRegistry.shutdown();
   await mcpManager.shutdown();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   logger.info('Shutting down MCP Bridge Server...');
-  await metaServer.shutdown();
+  await toolRegistry.shutdown();
   await mcpManager.shutdown();
   process.exit(0);
 });

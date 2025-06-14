@@ -4,6 +4,7 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { logger } from './utils/logger.js';
 import { MCPServerConfig, loadMCPConfig, MCPConfig, getEnabledServers } from './config/mcp-config.js';
+import { IBridgeToolRegistry } from './bridge-tool-registry.js';
 
 interface MCPConnection {
   id: string;
@@ -29,6 +30,7 @@ interface ToolConflict {
 export class MCPBridgeManager {
   private connections: Map<string, MCPConnection> = new Map();
   private config: MCPConfig | null = null;
+  private toolRegistry: IBridgeToolRegistry | null = null;
 
   async initialize(configPath?: string): Promise<void> {
     logger.info('Initializing MCP Bridge Manager...');
@@ -362,20 +364,21 @@ export class MCPBridgeManager {
     return conflicts;
   }
 
-  // Call tool with namespace support
-  async callToolByNamespace(namespacedName: string, arguments_: Record<string, any>): Promise<any> {
-    const parts = namespacedName.split(':');
-    if (parts.length !== 2) {
-      throw new Error(`Invalid namespaced tool name: ${namespacedName}. Expected format: 'serverId:toolName'`);
-    }
-    
-    const [serverId, toolName] = parts;
-    return this.callTool(serverId, toolName, arguments_);
-  }
+
 
   // Get tool by namespaced name
   async getToolByNamespace(namespacedName: string): Promise<NamespacedTool | null> {
     const allTools = await this.getAllTools();
     return allTools.find(tool => tool.namespacedName === namespacedName) || null;
+  }
+  
+  // BridgeToolRegistryへのアクセスを提供
+  setToolRegistry(registry: IBridgeToolRegistry): void {
+    this.toolRegistry = registry;
+  }
+  
+  // BridgeToolRegistryインスタンスを取得
+  getToolRegistry(): IBridgeToolRegistry | null {
+    return this.toolRegistry;
   }
 }

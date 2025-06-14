@@ -67,10 +67,13 @@ export function loadMCPConfig(configPath: string): MCPConfig {
     const configData = fs.readFileSync(configPath, 'utf-8');
     const parsedConfig = JSON.parse(configData);
     
-    // Validate configuration using Zod
-    const validatedConfig = MCPConfigSchema.parse(parsedConfig);
+    // 設定内の環境変数を展開
+    const expandedConfig = expandEnvVarsInObject(parsedConfig);
     
-    logger.info(`Loaded MCP configuration from ${configPath}`);
+    // Validate configuration using Zod
+    const validatedConfig = MCPConfigSchema.parse(expandedConfig);
+    
+    logger.info(`Loaded MCP configuration from ${configPath} with environment variables expanded`);
     return validatedConfig;
   } catch (error) {
     logger.error(`Failed to load MCP configuration from ${configPath}:`, error);
@@ -171,4 +174,43 @@ export function saveMCPConfig(config: MCPConfig, configPath: string): void {
  */
 export function getEnabledServers(config: MCPConfig): MCPServerConfig[] {
   return config.servers.filter(server => server.enabled);
+}
+
+/**
+ * 環境変数を展開する関数
+ * ${VAR} 形式の文字列を環境変数の値に置き換えます
+ * @param value 展開する文字列
+ * @returns 環境変数展開後の文字列
+ */
+export function expandEnvVars(value: string): string {
+  return value.replace(/\${([^}]+)}/g, (match, varName) => {
+    return process.env[varName] || match; // 環境変数が存在しない場合は元の文字列をそのまま返す
+  });
+}
+
+/**
+ * オブジェクト内の環境変数を再帰的に展開
+ * @param obj 展開するオブジェクト
+ * @returns 環境変数展開後のオブジェクト
+ */
+export function expandEnvVarsInObject(obj: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'string') {
+      result[key] = expandEnvVars(value);
+    } else if (Array.isArray(value)) {
+      result[key] = value.map(item => 
+        typeof item === 'string' ? expandEnvVars(item) : 
+        typeof item === 'object' && item !== null ? expandEnvVarsInObject(item) : 
+        item
+      );
+    } else if (typeof value === 'object' && value !== null) {
+      result[key] = expandEnvVarsInObject(value);
+    } else {
+      result[key] = value;
+    }
+  }
+  
+  return result;
 }
