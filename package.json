@@ -1,0 +1,60 @@
+{
+  "name": "mcp-bridge",
+  "version": "1.0.0",
+  "description": "A TypeScript-based HTTP gateway for multiple STDIO/SSE/HTTP-based MCP (Model Context Protocol) servers with tool name conflict resolution and meta-server capabilities",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "mcp-bridge": "dist/index.js",
+    "mcp-bridge-server": "dist/mcp-server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "mcp-server": "node dist/mcp-server.js",
+    "test-sse-server": "node dist/examples/test-sse-server.js",
+    "dev": "nodemon --exec \"npm run build && npm start\" --ext ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "bridge",
+    "server",
+    "typescript",
+    "express",
+    "stdio",
+    "sse",
+    "http",
+    "api-gateway",
+    "tool-management"
+  ],
+  "author": "mako10k",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mako10k/mcp-bridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mako10k/mcp-bridge/issues"
+  },
+  "homepage": "https://github.com/mako10k/mcp-bridge#readme",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.0.1",
+    "nodemon": "^3.1.10",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.3",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "zod": "^3.25.64"
+  }
+}

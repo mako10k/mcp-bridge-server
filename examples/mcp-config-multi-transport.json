@@ -1,0 +1,41 @@
+{
+  "servers": [
+    {
+      "name": "filesystem-stdio",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "enabled": true,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    },
+    {
+      "name": "test-sse-server",
+      "transport": "sse",
+      "url": "http://localhost:3001/sse",
+      "enabled": true,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    },
+    {
+      "name": "remote-api-example",
+      "transport": "http",
+      "url": "https://api.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer your-token-here",
+        "X-Client-Id": "mcp-bridge"
+      },
+      "enabled": false,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    }
+  ],
+  "global": {
+    "logLevel": "info",
+    "maxConcurrentConnections": 10,
+    "requestTimeout": 30000
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "servers": [
+    {
+      "name": "filesystem",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "enabled": true,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    },
+    {
+      "name": "filesystem2",
+      "transport": "stdio",
+      "command": "npx", 
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home"],
+      "enabled": true,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    },
+    {
+      "name": "brave-search",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": ""
+      },
+      "enabled": false,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    },
+    {
+      "name": "example-sse-server",
+      "transport": "sse",
+      "url": "http://localhost:3001/sse",
+      "enabled": false,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    },
+    {
+      "name": "example-http-server",
+      "transport": "http",
+      "url": "http://localhost:3002/mcp",
+      "headers": {
+        "Authorization": "Bearer your-token-here"
+      },
+      "enabled": false,
+      "timeout": 30000,
+      "restartOnFailure": true,
+      "maxRestarts": 3
+    }
+  ],
+  "global": {
+    "logLevel": "info",
+    "maxConcurrentConnections": 10,
+    "requestTimeout": 30000
+  }
+}
