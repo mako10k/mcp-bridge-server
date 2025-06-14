@@ -43,3 +43,4 @@ Thumbs.db
 
 # MCP specific
 mcp-config.local.json
+mcp-config.json
