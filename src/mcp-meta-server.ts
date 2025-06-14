@@ -19,7 +19,8 @@ export class MCPMetaServer {
       {
         capabilities: {
           tools: {},
-        },
+        }
+        // SDK内部でプロトコルバージョン交渉が行われる
       }
     );
 
