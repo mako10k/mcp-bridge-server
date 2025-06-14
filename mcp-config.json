@@ -4,17 +4,7 @@
       "name": "filesystem",
       "transport": "stdio",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
-      "enabled": true,
-      "timeout": 30000,
-      "restartOnFailure": true,
-      "maxRestarts": 3
-    },
-    {
-      "name": "filesystem2",
-      "transport": "stdio",
-      "command": "npx", 
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home"],
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/mako10k"],
       "enabled": true,
       "timeout": 30000,
       "restartOnFailure": true,
@@ -34,25 +24,22 @@
       "maxRestarts": 3
     },
     {
-      "name": "example-sse-server",
-      "transport": "sse",
-      "url": "http://localhost:3001/sse",
-      "enabled": false,
-      "timeout": 30000,
-      "restartOnFailure": true,
-      "maxRestarts": 3
+        "name": "google-search",
+        "transport": "http",
+        "url": "http://localhost:3003/mcp",
+        "enabled": true,
+        "timeout": 30000,
+        "restartOnFailure": true,
+        "maxRestarts": 3
     },
     {
-      "name": "example-http-server",
-      "transport": "http",
-      "url": "http://localhost:3002/mcp",
-      "headers": {
-        "Authorization": "Bearer your-token-here"
-      },
-      "enabled": false,
-      "timeout": 30000,
-      "restartOnFailure": true,
-      "maxRestarts": 3
+        "name": "test-sse-server",
+        "transport": "sse",
+        "url": "http://localhost:3001/sse",
+        "enabled": false,
+        "timeout": 30000,
+        "restartOnFailure": true,
+        "maxRestarts": 3
     }
   ],
   "global": {

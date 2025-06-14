@@ -149,15 +149,37 @@ export class MCPBridgeManager {
       throw new Error('URL is required for SSE transport');
     }
 
-    const options: any = {
-      url: config.url,
-    };
+    logger.debug(`Creating SSE transport for ${config.name} with URL: ${config.url}`);
 
-    if (config.headers) {
-      options.headers = config.headers;
+    // Validate URL format
+    try {
+      new URL(config.url);
+      logger.debug(`URL validation passed for SSE: ${config.url}`);
+    } catch (error) {
+      logger.error(`Invalid URL format for SSE: ${config.url}`, error);
+      throw new Error(`Invalid URL format for server ${config.name}: ${config.url}`);
     }
 
-    return new SSEClientTransport(options);
+    const options: any = {};
+
+    if (config.headers) {
+      options.requestInit = {
+        headers: config.headers
+      };
+    }
+
+    logger.debug(`SSE transport URL:`, config.url);
+    logger.debug(`SSE transport options:`, JSON.stringify(options, null, 2));
+
+    try {
+      // Pass URL as first parameter, options as second parameter
+      const transport = new SSEClientTransport(new URL(config.url), options);
+      logger.debug(`SSEClientTransport created successfully for ${config.name}`);
+      return transport;
+    } catch (error) {
+      logger.error(`Failed to create SSEClientTransport for ${config.name}:`, error);
+      throw error;
+    }
   }
 
   private async createHTTPTransport(config: MCPServerConfig): Promise<StreamableHTTPClientTransport> {
@@ -165,15 +187,38 @@ export class MCPBridgeManager {
       throw new Error('URL is required for HTTP transport');
     }
 
-    const options: any = {
-      url: config.url,
-    };
+    logger.debug(`Creating HTTP transport for ${config.name} with URL: ${config.url}`);
+    logger.debug(`Config object:`, JSON.stringify(config, null, 2));
 
-    if (config.headers) {
-      options.headers = config.headers;
+    // Validate URL format
+    try {
+      new URL(config.url);
+      logger.debug(`URL validation passed for: ${config.url}`);
+    } catch (error) {
+      logger.error(`Invalid URL format: ${config.url}`, error);
+      throw new Error(`Invalid URL format for server ${config.name}: ${config.url}`);
     }
 
-    return new StreamableHTTPClientTransport(options);
+    const options: any = {};
+
+    if (config.headers) {
+      options.requestInit = {
+        headers: config.headers
+      };
+    }
+
+    logger.debug(`HTTP transport URL:`, config.url);
+    logger.debug(`HTTP transport options:`, JSON.stringify(options, null, 2));
+
+    try {
+      // Pass URL as first parameter, options as second parameter
+      const transport = new StreamableHTTPClientTransport(new URL(config.url), options);
+      logger.debug(`StreamableHTTPClientTransport created successfully for ${config.name}`);
+      return transport;
+    } catch (error) {
+      logger.error(`Failed to create StreamableHTTPClientTransport for ${config.name}:`, error);
+      throw error;
+    }
   }
 
   getAvailableServers(): string[] {
