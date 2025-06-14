@@ -127,24 +127,6 @@ export class MCPMetaServer {
           },
           {
             name: 'call_tool',
-            description: 'Call a tool using namespaced name (serverId:toolName)',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                name: {
-                  type: 'string',
-                  description: 'Namespaced tool name in format "serverId:toolName"',
-                },
-                arguments: {
-                  type: 'object',
-                  description: 'Arguments to pass to the tool',
-                },
-              },
-              required: ['name'],
-            },
-          },
-          {
-            name: 'call_server_tool',
             description: 'Call a tool on a specific MCP server',
             inputSchema: {
               type: 'object',
@@ -436,29 +418,15 @@ export class MCPMetaServer {
             };
 
           case 'call_tool':
-            if (!args.name) {
-              throw new Error('name is required');
+            if (!args.serverId || !args.toolName) {
+              throw new Error('serverId and toolName are required');
             }
-            const result = await this.mcpManager.callToolByNamespace(args.name as string, args.arguments || {});
+            const result = await this.mcpManager.callTool(args.serverId as string, args.toolName as string, args.arguments || {});
             return {
               content: [
                 {
                   type: 'text',
                   text: JSON.stringify({ result }, null, 2),
-                },
-              ],
-            };
-
-          case 'call_server_tool':
-            if (!args.serverId || !args.toolName) {
-              throw new Error('serverId and toolName are required');
-            }
-            const serverResult = await this.mcpManager.callTool(args.serverId as string, args.toolName as string, args.arguments || {});
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({ result: serverResult }, null, 2),
                 },
               ],
             };

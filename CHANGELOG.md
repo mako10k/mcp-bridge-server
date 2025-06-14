@@ -14,8 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `register_direct_tool`: Register a tool from any server for direct access
   - `unregister_direct_tool`: Remove a registered tool
   - `list_registered_tools`: List all directly registered tools
-  - `call_direct_tool`: Call a registered tool by its registered name
 - Add persistent tool registry for improved client access 
+
+### Changed
+- Simplify tool calling API by consolidating to a single explicit format
+- Rename `call_server_tool` to `call_tool` with explicit serverId and toolName parameters
+- Remove `call_tool` with namespace format (serverId:toolName) for better error prevention
 
 ## [1.1.2] - 2025-06-14
 

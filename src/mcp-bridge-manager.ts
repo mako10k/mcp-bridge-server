@@ -362,16 +362,7 @@ export class MCPBridgeManager {
     return conflicts;
   }
 
-  // Call tool with namespace support
-  async callToolByNamespace(namespacedName: string, arguments_: Record<string, any>): Promise<any> {
-    const parts = namespacedName.split(':');
-    if (parts.length !== 2) {
-      throw new Error(`Invalid namespaced tool name: ${namespacedName}. Expected format: 'serverId:toolName'`);
-    }
-    
-    const [serverId, toolName] = parts;
-    return this.callTool(serverId, toolName, arguments_);
-  }
+
 
   // Get tool by namespaced name
   async getToolByNamespace(namespacedName: string): Promise<NamespacedTool | null> {
