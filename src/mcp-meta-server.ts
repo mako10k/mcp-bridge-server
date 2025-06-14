@@ -90,16 +90,20 @@ export class MCPMetaServer {
             inputSchema: {
               type: 'object',
               properties: {
-                namespacedName: {
+                serverId: {
                   type: 'string',
-                  description: 'The namespaced tool name to register (format: "serverId:toolName")',
+                  description: 'The ID of the MCP server',
+                },
+                toolName: {
+                  type: 'string',
+                  description: 'The name of the tool to register',
                 },
                 newName: {
                   type: 'string',
                   description: 'Optional new name for the tool (if different from original name)',
                 },
               },
-              required: ['namespacedName'],
+              required: ['serverId', 'toolName'],
             },
           },
           {
@@ -126,7 +130,7 @@ export class MCPMetaServer {
             },
           },
           {
-            name: 'call_tool',
+            name: 'call_server_tool',
             description: 'Call a tool on a specific MCP server',
             inputSchema: {
               type: 'object',
@@ -275,21 +279,17 @@ export class MCPMetaServer {
             
           // ツール直接登録/管理機能のハンドラー
           case 'register_direct_tool':
-            if (!args.namespacedName) {
-              throw new Error('namespacedName is required');
+            if (!args.serverId || !args.toolName) {
+              throw new Error('serverId and toolName are required');
             }
             try {
-              // ツールの詳細情報を取得
-              const parts = (args.namespacedName as string).split(':');
-              if (parts.length !== 2) {
-                throw new Error(`Invalid namespaced tool name: ${args.namespacedName}. Expected format: 'serverId:toolName'`);
-              }
-              
-              const [serverId, originalToolName] = parts;
+              const serverId = args.serverId as string;
+              const originalToolName = args.toolName as string;
+              const namespacedName = `${serverId}:${originalToolName}`;
               const toolName = args.newName as string || originalToolName;
               
               // ツールが存在するか確認
-              const sourceServer = await this.mcpManager.getToolByNamespace(args.namespacedName as string);
+              const sourceServer = await this.mcpManager.getToolByNamespace(namespacedName);
               if (!sourceServer) {
                 throw new Error(`Tool ${originalToolName} not found on server ${serverId}`);
               }
@@ -301,7 +301,7 @@ export class MCPMetaServer {
               
               // ツール情報を保存
               const toolInfo: RegisteredToolInfo = {
-                namespacedName: args.namespacedName as string,
+                namespacedName,
                 serverId,
                 originalName: originalToolName,
                 description: sourceServer.description,
@@ -313,7 +313,7 @@ export class MCPMetaServer {
               // ツールのハンドラーを動的に登録
               this.registerDynamicToolHandler(toolName, toolInfo);
               
-              logger.info(`Registered direct tool: ${toolName} (${args.namespacedName})`);
+              logger.info(`Registered direct tool: ${toolName} (${serverId}:${originalToolName})`);
               
               return {
                 content: [
@@ -323,7 +323,8 @@ export class MCPMetaServer {
                       success: true, 
                       tool: {
                         name: toolName,
-                        namespacedName: args.namespacedName,
+                        serverId,
+                        originalName: originalToolName,
                         description: sourceServer.description
                       }
                     }, null, 2),
@@ -417,7 +418,7 @@ export class MCPMetaServer {
               ],
             };
 
-          case 'call_tool':
+          case 'call_server_tool':
             if (!args.serverId || !args.toolName) {
               throw new Error('serverId and toolName are required');
             }

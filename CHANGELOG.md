@@ -17,9 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add persistent tool registry for improved client access 
 
 ### Changed
-- Simplify tool calling API by consolidating to a single explicit format
-- Rename `call_server_tool` to `call_tool` with explicit serverId and toolName parameters
-- Remove `call_tool` with namespace format (serverId:toolName) for better error prevention
+- Update API design for consistency and explicit parameter usage
+- Use explicit `serverId` and `toolName` parameters for all tool operations
+- Standardize on `call_server_tool` for server tool invocation
+- Enhance direct tool registration with explicit parameters
 
 ## [1.1.2] - 2025-06-14
 

@@ -140,28 +140,7 @@ export class MCPHttpServer {
               required: ['serverId']
             }
           },
-          {
-            name: 'call_tool',
-            description: 'Call a tool on a specific MCP server',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                serverId: {
-                  type: 'string',
-                  description: 'The ID of the MCP server'
-                },
-                toolName: {
-                  type: 'string',
-                  description: 'The name of the tool to call'
-                },
-                arguments: {
-                  type: 'object',
-                  description: 'Arguments to pass to the tool'
-                }
-              },
-              required: ['serverId', 'toolName']
-            }
-          },
+
           {
             name: 'call_server_tool',
             description: 'Call a tool on a specific MCP server',
@@ -183,7 +162,52 @@ export class MCPHttpServer {
               },
               required: ['serverId', 'toolName']
             }
-          }
+          },
+          {
+            name: 'register_direct_tool',
+            description: 'Register a tool for direct access (with optional rename)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                serverId: {
+                  type: 'string',
+                  description: 'The ID of the MCP server'
+                },
+                toolName: {
+                  type: 'string',
+                  description: 'The name of the tool to register'
+                },
+                newName: {
+                  type: 'string',
+                  description: 'Optional new name for the tool (if different from original name)'
+                }
+              },
+              required: ['serverId', 'toolName']
+            }
+          },
+          {
+            name: 'unregister_direct_tool',
+            description: 'Remove a directly registered tool',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                toolName: {
+                  type: 'string',
+                  description: 'The name of the tool to remove (must be a previously registered tool)'
+                }
+              },
+              required: ['toolName']
+            }
+          },
+          {
+            name: 'list_registered_tools',
+            description: 'List all directly registered tools',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+              required: []
+            }
+          },
         ]
       };
     });
@@ -231,17 +255,7 @@ export class MCPHttpServer {
               }]
             };
             
-          case 'call_tool':
-            if (!args.serverId || !args.toolName) {
-              throw new Error('serverId and toolName are required');
-            }
-            const result = await this.mcpManager.callTool(args.serverId as string, args.toolName as string, args.arguments || {});
-            return {
-              content: [{
-                type: 'text',
-                text: JSON.stringify({ result }, null, 2)
-              }]
-            };
+
             
           case 'call_server_tool':
             if (!args.serverId || !args.toolName) {
@@ -258,6 +272,126 @@ export class MCPHttpServer {
                 text: JSON.stringify({ result: serverResult }, null, 2)
               }]
             };
+            
+          case 'register_direct_tool':
+            if (!args.serverId || !args.toolName) {
+              throw new Error('serverId and toolName are required');
+            }
+            try {
+              const serverId = args.serverId as string;
+              const originalToolName = args.toolName as string;
+              const namespacedName = `${serverId}:${originalToolName}`;
+              const toolName = args.newName as string || originalToolName;
+              
+              // ツールが存在するか確認
+              const allTools = await this.mcpManager.getAllTools();
+              const sourceServer = allTools.find(tool => 
+                tool.serverId === serverId && tool.name === originalToolName
+              );
+              
+              if (!sourceServer) {
+                throw new Error(`Tool ${originalToolName} not found on server ${serverId}`);
+              }
+              
+              // 同じ名前のツールが既に登録されていないか確認
+              // Note: MCPHttpServerの実装では、実際の登録はプロキシとなり
+              // ツールの実際の実装はMCPMetaServerで行われます
+              
+              logger.info(`Registering direct tool via HTTP: ${toolName} (${serverId}:${originalToolName})`);
+              
+              // MCPMetaServerへの呼び出しを作成
+              const toolRegistrationResult = await this.mcpManager.callTool(
+                'mcp-bridge-meta',
+                'register_direct_tool',
+                { serverId, toolName: originalToolName, newName: toolName }
+              );
+              
+              return {
+                content: [{
+                  type: 'text',
+                  text: JSON.stringify(toolRegistrationResult, null, 2)
+                }]
+              };
+            } catch (error) {
+              logger.error(`Error registering direct tool:`, error);
+              return {
+                content: [{
+                  type: 'text',
+                  text: JSON.stringify({
+                    success: false,
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                  }, null, 2)
+                }],
+                isError: true
+              };
+            }
+            
+          case 'unregister_direct_tool':
+            if (!args.toolName) {
+              throw new Error('toolName is required');
+            }
+            
+            try {
+              const toolName = args.toolName as string;
+              logger.info(`Unregistering direct tool via HTTP: ${toolName}`);
+              
+              // MCPMetaServerに中継
+              const unregisterResult = await this.mcpManager.callTool(
+                'mcp-bridge-meta',
+                'unregister_direct_tool',
+                { toolName }
+              );
+              
+              return {
+                content: [{
+                  type: 'text',
+                  text: JSON.stringify(unregisterResult, null, 2)
+                }]
+              };
+            } catch (error) {
+              logger.error(`Error unregistering direct tool:`, error);
+              return {
+                content: [{
+                  type: 'text',
+                  text: JSON.stringify({
+                    success: false,
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                  }, null, 2)
+                }],
+                isError: true
+              };
+            }
+            
+          case 'list_registered_tools':
+            try {
+              logger.info(`Listing registered tools via HTTP`);
+              
+              // MCPMetaServerに中継
+              const listResult = await this.mcpManager.callTool(
+                'mcp-bridge-meta',
+                'list_registered_tools',
+                {}
+              );
+              
+              return {
+                content: [{
+                  type: 'text',
+                  text: JSON.stringify(listResult, null, 2)
+                }]
+              };
+            } catch (error) {
+              logger.error(`Error listing registered tools:`, error);
+              return {
+                content: [{
+                  type: 'text',
+                  text: JSON.stringify({
+                    success: false,
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                  }, null, 2)
+                }],
+                isError: true
+              };
+            }
             
           default:
             throw new Error(`Unknown tool: ${name}`);
