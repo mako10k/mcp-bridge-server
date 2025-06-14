@@ -1,5 +1,10 @@
 # MCP Bridge Server
 
+[![GitHub release](https://img.shields.io/github/release/mako10k/mcp-bridge-server.svg)](https://github.com/mako10k/mcp-bridge-server/releases)
+[![Docker Pulls](https://img.shields.io/docker/pulls/mako10k/mcp-bridge.svg)](https://hub.docker.com/r/mako10k/mcp-bridge)
+[![Docker Image Size](https://img.shields.io/docker/image-size/mako10k/mcp-bridge/latest.svg)](https://hub.docker.com/r/mako10k/mcp-bridge)
+[![GitHub Actions](https://github.com/mako10k/mcp-bridge-server/workflows/CI/badge.svg)](https://github.com/mako10k/mcp-bridge-server/actions)
+
 A TypeScript-based HTTP gateway for multiple STDIO-based MCP (Model Context Protocol) servers. This project solves VS Code's STDIO MCP server execution bugs by providing a unified HTTP API.
 
 ## Features
@@ -15,6 +20,17 @@ A TypeScript-based HTTP gateway for multiple STDIO-based MCP (Model Context Prot
 - **Type Safety**: Full TypeScript implementation with strict type checking
 
 ## Quick Start
+
+### Docker (Recommended)
+
+```bash
+# Run with Docker
+docker run -d -p 3000:3000 mako10k/mcp-bridge:latest
+
+# Or with docker-compose
+curl -o docker-compose.yml https://raw.githubusercontent.com/mako10k/mcp-bridge-server/main/docker-compose.yml
+docker-compose up -d
+```
 
 ### Prerequisites
 
