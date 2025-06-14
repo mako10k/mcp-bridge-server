@@ -1,0 +1,443 @@
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { CallToolRequestSchema, ListToolsRequestSchema, LATEST_PROTOCOL_VERSION, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
+import express, { Request, Response, NextFunction } from 'express';
+import { MCPBridgeManager } from './mcp-bridge-manager.js';
+import { logger } from './utils/logger.js';
+import { randomUUID } from 'crypto';
+
+/**
+ * MCP HTTP Server implementation using the StreamableHTTPServerTransport from the MCP SDK.
+ * Implements a proper MCP server using the MCP SDK's Server module and StreamableHTTPServerTransport.
+ * Uses per-request transports to ensure correct protocol version negotiation with clients.
+ * This implementation is based on the approach used in mako10k/mcp-search, which successfully works with VS Code.
+ */
+export class MCPHttpServer {
+  private mcpManager: MCPBridgeManager;
+  private server: Server;
+  
+  // Keep track of active transports by session ID
+  private transports: Record<string, StreamableHTTPServerTransport> = {};
+  private lastAccessTime: Record<string, number> = {};
+  private readonly IDLE_TIMEOUT = 1800000; // 30分のアイドルタイムアウト
+  private cleanupInterval: NodeJS.Timeout | null = null;
+
+  constructor(mcpManager: MCPBridgeManager) {
+    this.mcpManager = mcpManager;
+    
+    // Initialize the MCP server
+    this.server = new Server(
+      {
+        name: 'mcp-bridge-http',
+        version: '1.0.0',
+      },
+      {
+        capabilities: {
+          tools: {},
+        }
+      }
+    );
+    
+    // Setup tools by forwarding to MCP Bridge Manager
+    this.setupTools();
+    
+    // Start the cleanup interval
+    this.startCleanupInterval();
+    
+    logger.info(`MCP HTTP Server initialized with protocol version: ${LATEST_PROTOCOL_VERSION}`);
+  }
+
+  /**
+   * Start the interval for cleaning up idle transports
+   */
+  private startCleanupInterval(): void {
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupIdleTransports();
+    }, 300000); // 5分ごとにチェック
+  }
+
+  /**
+   * Clean up idle transports that haven't been used for a while
+   */
+  private cleanupIdleTransports(): void {
+    const now = Date.now();
+    const sessionsToRemove: string[] = [];
+
+    // Check each transport for idle time
+    Object.entries(this.lastAccessTime).forEach(([sessionId, lastAccess]) => {
+      if (now - lastAccess > this.IDLE_TIMEOUT) {
+        sessionsToRemove.push(sessionId);
+      }
+    });
+
+    // Remove idle transports
+    sessionsToRemove.forEach(sessionId => {
+      logger.info(`Removing idle transport for session ${sessionId} (inactive for ${Math.round((now - (this.lastAccessTime[sessionId] || 0)) / 60000)} minutes)`);
+      const transport = this.transports[sessionId];
+      if (transport) {
+        try {
+          transport.close();
+        } catch (error) {
+          logger.error(`Error closing idle transport for session ${sessionId}:`, error);
+        }
+        delete this.transports[sessionId];
+        delete this.lastAccessTime[sessionId];
+      }
+    });
+
+    if (sessionsToRemove.length > 0) {
+      logger.info(`Cleaned up ${sessionsToRemove.length} idle transports`);
+    }
+  }
+
+  /**
+   * Set up the tools handled by the MCP server.
+   * These tools will delegate to the MCP Bridge Manager.
+   */
+  private setupTools(): void {
+    this.setupListToolsHandler();
+    this.setupCallToolHandler();
+  }
+
+  /**
+   * Setup the handler for listing available tools.
+   */
+  private setupListToolsHandler(): void {
+    // Handle tool listing requests
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      logger.debug('Handling ListTools request');
+      return {
+        tools: [
+          {
+            name: 'list_servers',
+            description: 'List all available MCP servers connected to the bridge',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+              required: []
+            }
+          },
+          {
+            name: 'list_all_tools',
+            description: 'List all tools from all connected MCP servers with namespace information',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+              required: []
+            }
+          },
+          {
+            name: 'list_server_tools',
+            description: 'List tools from a specific MCP server',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                serverId: {
+                  type: 'string',
+                  description: 'The ID of the MCP server'
+                }
+              },
+              required: ['serverId']
+            }
+          },
+          {
+            name: 'call_tool',
+            description: 'Call a tool using namespaced name (serverId:toolName)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                name: {
+                  type: 'string',
+                  description: 'Namespaced tool name in format "serverId:toolName"'
+                },
+                arguments: {
+                  type: 'object',
+                  description: 'Arguments to pass to the tool'
+                }
+              },
+              required: ['name']
+            }
+          },
+          {
+            name: 'call_server_tool',
+            description: 'Call a tool on a specific MCP server',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                serverId: {
+                  type: 'string',
+                  description: 'The ID of the MCP server'
+                },
+                toolName: {
+                  type: 'string',
+                  description: 'The name of the tool to call'
+                },
+                arguments: {
+                  type: 'object',
+                  description: 'Arguments to pass to the tool'
+                }
+              },
+              required: ['serverId', 'toolName']
+            }
+          }
+        ]
+      };
+    });
+  }
+
+  /**
+   * Setup the handler for calling tools.
+   */
+  private setupCallToolHandler(): void {
+    // Handle tool call requests
+    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      try {
+        const { name, arguments: args = {} } = request.params;
+        logger.debug(`Handling CallTool request for tool: ${name}`);
+        
+        switch (name) {
+          case 'list_servers':
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  servers: this.mcpManager.getAvailableServers()
+                }, null, 2)
+              }]
+            };
+            
+          case 'list_all_tools':
+            const allTools = await this.mcpManager.getAllTools();
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({ tools: allTools }, null, 2)
+              }]
+            };
+            
+          case 'list_server_tools':
+            if (!args.serverId) {
+              throw new Error('serverId is required');
+            }
+            const tools = await this.mcpManager.listTools(args.serverId as string);
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({ tools }, null, 2)
+              }]
+            };
+            
+          case 'call_tool':
+            if (!args.name) {
+              throw new Error('name is required');
+            }
+            const result = await this.mcpManager.callToolByNamespace(args.name as string, args.arguments || {});
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({ result }, null, 2)
+              }]
+            };
+            
+          case 'call_server_tool':
+            if (!args.serverId || !args.toolName) {
+              throw new Error('serverId and toolName are required');
+            }
+            const serverResult = await this.mcpManager.callTool(
+              args.serverId as string, 
+              args.toolName as string, 
+              args.arguments || {}
+            );
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({ result: serverResult }, null, 2)
+              }]
+            };
+            
+          default:
+            throw new Error(`Unknown tool: ${name}`);
+        }
+      } catch (error) {
+        logger.error(`Error executing tool ${request.params.name}:`, error);
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              error: error instanceof Error ? error.message : 'Unknown error'
+            }, null, 2)
+          }],
+          isError: true
+        };
+      }
+    });
+  }
+
+  /**
+   * Register the MCP server with an existing Express instance
+   * @param expressApp Express application to register with
+   */
+  registerWithApp(expressApp: express.Application): void {
+    // Handle all MCP requests at the /mcp endpoint
+    expressApp.all('/mcp', async (req: Request, res: Response) => {
+      logger.debug(`Received MCP ${req.method} request`);
+      
+      try {
+        // Check for existing session ID
+        const sessionId = req.headers['mcp-session-id'] as string | undefined;
+        let transport: StreamableHTTPServerTransport;
+        
+        if (sessionId && this.transports[sessionId]) {
+          // Use existing transport - don't recreate during a session
+          // VSCode expects the same transport throughout a session
+          transport = this.transports[sessionId];
+          logger.info(`Using existing transport for session ${sessionId}`);
+          
+          // Update access time
+          this.lastAccessTime[sessionId] = Date.now();
+          
+
+        } else if (!sessionId && req.method === 'POST' && req.body && isInitializeRequest(req.body)) {
+          // New session - create a new transport with explicit debugging
+          logger.info('Initializing new MCP session with request:', JSON.stringify(req.body));
+          
+          transport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: () => randomUUID(),
+            onsessioninitialized: (newSessionId) => {
+              logger.info(`New MCP session initialized with ID: ${newSessionId}`);
+              this.transports[newSessionId] = transport;
+              this.lastAccessTime[newSessionId] = Date.now();
+              
+              // Setup cleanup when transport is closed
+              transport.onclose = () => {
+                if (newSessionId && this.transports[newSessionId]) {
+                  logger.info(`Transport closed for session ${newSessionId}, removing from transports map`);
+                  delete this.transports[newSessionId];
+                  delete this.lastAccessTime[newSessionId];
+                }
+              };
+              
+              // Add improved error handler for transport with reconnect support
+              transport.onerror = (error) => {
+                logger.error(`Transport error for session ${newSessionId}:`, error);
+                // Don't close or delete transport on error - VS Code might reconnect
+              };
+            }
+          });
+          
+          // Connect transport to server BEFORE handling the request
+          logger.debug('Connecting new transport to MCP server');
+          await this.server.connect(transport);
+        } else {
+          // Invalid request - no session ID for non-initialization request
+          logger.error(`Invalid request: No session ID provided for non-initialization request or session expired`);
+          res.status(400).json({
+            jsonrpc: '2.0',
+            error: {
+              code: -32000,
+              message: 'Bad Request: No valid session ID provided or not an initialization request',
+            },
+            id: null,
+          });
+          return;
+        }
+        
+        // Close connection when done
+        res.on('close', () => {
+          logger.debug(`Connection closed for ${req.method} request`);
+        });
+        
+        // Handle the request based on method
+        if (req.method === 'POST') {
+          logger.debug(`Processing MCP POST request with body: ${JSON.stringify(req.body)}`);
+          logger.debug(`Session ID: ${sessionId || 'new session'}`);
+          try {
+            await transport.handleRequest(req, res, req.body);
+            logger.debug('POST request handled successfully');
+          } catch (transportError) {
+            logger.error(`Error in transport.handleRequest for POST: ${transportError}`);
+            throw transportError; // Re-throw to be caught by outer catch block
+          }
+        } else if (req.method === 'GET' || req.method === 'DELETE') {
+          logger.debug(`Processing MCP ${req.method} request`);
+          try {
+            await transport.handleRequest(req, res);
+            logger.debug(`${req.method} request handled successfully`);
+          } catch (transportError) {
+            logger.error(`Error in transport.handleRequest for ${req.method}: ${transportError}`);
+            throw transportError; // Re-throw to be caught by outer catch block
+          }
+        } else {
+          res.status(405).json({
+            jsonrpc: '2.0',
+            error: {
+              code: -32000,
+              message: 'Method not allowed',
+            },
+            id: null,
+          });
+        }
+        
+        logger.debug('MCP request handled successfully');
+      } catch (error) {
+        logger.error('Error handling MCP request:', error);
+        if (!res.headersSent) {
+          if (req.method === 'POST') {
+            res.status(500).json({
+              jsonrpc: '2.0',
+              error: {
+                code: -32603,
+                message: 'Internal server error',
+              },
+              id: null,
+            });
+          } else {
+            res.status(500).send('Internal server error');
+          }
+        }
+      }
+    });
+
+    logger.info('MCP HTTP Server registered with Express application');
+  }
+
+  /**
+   * Shutdown the MCP server and close all connections
+   */
+  async shutdown(): Promise<void> {
+    logger.info('Shutting down MCP HTTP server');
+    
+    try {
+      // Stop the cleanup interval if it exists
+      if (this.cleanupInterval) {
+        clearInterval(this.cleanupInterval);
+        this.cleanupInterval = null;
+        logger.debug('Stopped idle transport cleanup interval');
+      }
+      
+      // Close all active transports
+      for (const sessionId in this.transports) {
+        try {
+          logger.debug(`Closing transport for session ${sessionId}`);
+          await this.transports[sessionId].close();
+        } catch (err) {
+          logger.error(`Error closing transport for session ${sessionId}:`, err);
+        }
+      }
+      
+      // Clear transports dictionary
+      Object.keys(this.transports).forEach(key => {
+        delete this.transports[key];
+      });
+      
+      // Clear last access time records
+      this.lastAccessTime = {};
+      
+      // Close the server
+      await this.server.close();
+      logger.info('MCP HTTP server shutdown complete');
+    } catch (error) {
+      logger.error('Error closing MCP HTTP server', error);
+    }
+  }
+}

@@ -5,6 +5,7 @@ import cors from 'cors';
 import { z } from 'zod';
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
 import { MCPMetaServer } from './mcp-meta-server.js';
+import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
 
 const app = express();
@@ -135,74 +136,9 @@ app.use((error: Error, req: express.Request, res: express.Response, next: expres
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// MCP Server endpoint
-app.post('/mcp', express.json(), async (req, res) => {
-  try {
-    // This endpoint provides MCP protocol access via HTTP
-    // The body should contain a JSON-RPC 2.0 message
-    const message = req.body;
-    
-    // For demonstration, we'll handle some basic MCP protocol messages
-    if (message.method === 'initialize') {
-      res.json({
-        jsonrpc: '2.0',
-        id: message.id,
-        result: {
-          protocolVersion: '2024-11-05',
-          capabilities: {
-            tools: {},
-          },
-          serverInfo: {
-            name: 'mcp-bridge-meta',
-            version: '1.0.0',
-          },
-        },
-      });
-    } else if (message.method === 'tools/list') {
-      const tools = [
-        'list_servers',
-        'list_all_tools', 
-        'list_conflicts',
-        'list_server_tools',
-        'call_tool',
-        'call_server_tool',
-        'list_server_resources',
-        'read_server_resource',
-      ];
-      
-      res.json({
-        jsonrpc: '2.0',
-        id: message.id,
-        result: {
-          tools: tools.map(name => ({
-            name,
-            description: `Meta tool: ${name}`,
-            inputSchema: { type: 'object' }
-          }))
-        },
-      });
-    } else {
-      res.status(400).json({
-        jsonrpc: '2.0',
-        id: message.id,
-        error: {
-          code: -32601,
-          message: 'Method not found',
-        },
-      });
-    }
-  } catch (error) {
-    logger.error('Error handling MCP request:', error);
-    res.status(500).json({
-      jsonrpc: '2.0',
-      id: null,
-      error: {
-        code: -32603,
-        message: 'Internal error',
-      },
-    });
-  }
-});
+// MCP HTTP Server using StreamableHTTPServerTransport from the SDK
+const mcpHttpServer = new MCPHttpServer(mcpManager);
+mcpHttpServer.registerWithApp(app);
 
 // Start the server
 async function startServer() {
