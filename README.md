@@ -133,14 +133,21 @@ Content-Type: application/json
   }
 }
 
-# Call tool using namespaced name
-POST /mcp/tools/call
+# 注意: 以下のエンドポイントは v1.2.1 から削除されました
+# 代わりに上記の '/mcp/servers/:serverId/tools/call' エンドポイントを使用してください
+
+# または直接登録されたツールを使用:
+POST /mcp/meta/tools/call
 Content-Type: application/json
 
 {
-  "name": "serverId:tool-name",
+  "name": "call_server_tool",
   "arguments": {
-    "param1": "value1"
+    "serverId": "serverId",
+    "toolName": "tool-name",
+    "arguments": {
+      "param1": "value1"
+    }
   }
 }
 ```
@@ -222,7 +229,7 @@ The MCP Bridge provides the following meta-tools:
 - **`list_all_tools`**: List all tools from all servers with namespace info
 - **`list_conflicts`**: Detect tool name conflicts between servers
 - **`list_server_tools`**: List tools from a specific server
-- **`call_tool`**: Call a tool using namespaced name (serverId:toolName)
+- **`call_server_tool`**: Call a tool on a specific MCP server (requires serverId and toolName)
 - **`call_server_tool`**: Call a tool on a specific server
 - **`list_server_resources`**: List resources from a specific server
 - **`read_server_resource`**: Read a resource from a specific server
@@ -252,10 +259,10 @@ When multiple MCP servers provide tools with the same name, the MCP Bridge Serve
 All tools are automatically assigned namespaced names in the format `serverId:toolName`:
 
 ```bash
-# Example: filesystem server's read_file tool becomes "filesystem:read_file"
-curl -X POST http://localhost:3000/mcp/tools/call \
+# 注: v1.2.1からは明示的なサーバーIDとツール名の指定が必要です
+curl -X POST http://localhost:3000/mcp/servers/filesystem/tools/call \
   -H "Content-Type: application/json" \
-  -d '{"name": "filesystem:read_file", "arguments": {"path": "/tmp/test.txt"}}'
+  -d '{"name": "read_file", "arguments": {"path": "/tmp/test.txt"}}'
 ```
 
 ### 2. Conflict Detection
@@ -429,10 +436,10 @@ curl http://localhost:3000/mcp/servers/filesystem-stdio/tools
 # Get tools from SSE server  
 curl http://localhost:3000/mcp/servers/test-sse-server/tools
 
-# Call tool on SSE server via namespaced name
-curl -X POST http://localhost:3000/mcp/tools/call \
+# Call tool on SSE server with explicit serverId and toolName
+curl -X POST http://localhost:3000/mcp/servers/test-sse-server/tools/call \
   -H "Content-Type: application/json" \
-  -d '{"name": "test-sse-server:echo", "arguments": {"text": "Hello from SSE!"}}'
+  -d '{"name": "echo", "arguments": {"text": "Hello from SSE!"}}'
 ```
 
 ## Docker Deployment

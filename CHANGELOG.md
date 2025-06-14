@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-06-16
+
+### Removed
+- **Breaking**: Remove deprecated `/mcp/tools/call` endpoint with namespaced tool format
+- Remove all references to old namespaced tool call method
+- Remove legacy tool schema definitions from API surface
+
+### Changed
+- Update documentation to reflect current API design
+- Standardize on explicit `serverId` and `toolName` parameters throughout codebase
+- Ensure tool schema definitions match actual implementation
+
 ## [1.2.0] - 2025-06-15
 
 ### Added
