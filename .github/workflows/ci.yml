@@ -58,6 +58,6 @@ jobs:
     - name: Check build artifacts
       run: |
         ls -la dist/
-        test -f dist/index.js
-        test -f dist/mcp-server.js
+        test -f dist/src/index.js
+        test -f dist/src/mcp-server.js
         test -f dist/examples/test-sse-server.js

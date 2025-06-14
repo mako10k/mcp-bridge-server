@@ -3,18 +3,18 @@
   "version": "1.0.0",
   "description": "A TypeScript-based HTTP gateway for multiple STDIO/SSE/HTTP-based MCP (Model Context Protocol) servers with tool name conflict resolution and meta-server capabilities",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "bin": {
-    "mcp-bridge": "dist/index.js",
-    "mcp-bridge-server": "dist/mcp-server.js"
+    "mcp-bridge": "dist/src/index.js",
+    "mcp-bridge-server": "dist/src/mcp-server.js"
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "mcp-server": "node dist/mcp-server.js",
+    "start": "node dist/src/index.js",
+    "mcp-server": "node dist/src/mcp-server.js",
     "test-sse-server": "node dist/examples/test-sse-server.js",
     "dev": "nodemon --exec \"npm run build && npm start\" --ext ts",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run build && echo \"Build successful - no tests specified yet\"",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
