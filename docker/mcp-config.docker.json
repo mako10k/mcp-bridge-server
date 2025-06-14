@@ -1,0 +1,42 @@
+{
+  "servers": [
+    {
+      "id": "filesystem-server",
+      "name": "Filesystem Operations",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "env": {}
+    },
+    {
+      "id": "brave-search",
+      "name": "Brave Search",
+      "transport": "stdio", 
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "your-api-key-here"
+      }
+    },
+    {
+      "id": "example-sse-server",
+      "name": "Example SSE Server",
+      "transport": "sse",
+      "url": "http://localhost:3001/sse"
+    },
+    {
+      "id": "example-http-server", 
+      "name": "Example HTTP Server",
+      "transport": "http",
+      "url": "http://localhost:3002/mcp"
+    }
+  ],
+  "conflictResolution": {
+    "strategy": "namespace",
+    "prefix": true
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/mcp-bridge.log"
+  }
+}

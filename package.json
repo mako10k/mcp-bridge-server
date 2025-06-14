@@ -15,7 +15,13 @@
     "test-sse-server": "node dist/examples/test-sse-server.js",
     "dev": "nodemon --exec \"npm run build && npm start\" --ext ts",
     "test": "npm run build && echo \"Build successful - no tests specified yet\"",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "docker:build": "./docker/build.sh --action build",
+    "docker:build:dev": "./docker/build.sh --action build --env development",
+    "docker:run": "./docker/build.sh --action run",
+    "docker:run:dev": "./docker/build.sh --action run --env development",
+    "docker:stop": "./docker/build.sh --action stop",
+    "docker:clean": "./docker/build.sh --action clean"
   },
   "keywords": [
     "mcp",

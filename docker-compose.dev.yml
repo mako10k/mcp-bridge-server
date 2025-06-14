@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  mcp-bridge-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: mcp-bridge-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "9229:9229"  # Node.js debugger port
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - CONFIG_PATH=/app/mcp-config.json
+    volumes:
+      # Mount source code for live reload
+      - .:/app
+      - /app/node_modules
+      # Mount logs directory
+      - ./logs:/app/logs
+    networks:
+      - mcp-network
+    command: ["npm", "run", "dev"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.request({hostname: 'localhost', port: 3000, path: '/health', timeout: 2000}, (res) => { if (res.statusCode === 200) process.exit(0); else process.exit(1); }); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  mcp-network:
+    driver: bridge

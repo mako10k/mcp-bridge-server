@@ -419,6 +419,150 @@ curl -X POST http://localhost:3000/mcp/tools/call \
   -d '{"name": "test-sse-server:echo", "arguments": {"text": "Hello from SSE!"}}'
 ```
 
+## Docker Deployment
+
+MCP Bridge Server includes comprehensive Docker support for easy deployment and scaling.
+
+### Quick Start with Docker
+
+1. **Using Docker Compose (Recommended):**
+   ```bash
+   # Production deployment
+   docker-compose up -d
+   
+   # Development with live reload
+   docker-compose -f docker-compose.dev.yml up -d
+   ```
+
+2. **Using npm scripts:**
+   ```bash
+   # Build and run production
+   npm run docker:run
+   
+   # Build and run development
+   npm run docker:run:dev
+   
+   # Stop services
+   npm run docker:stop
+   ```
+
+3. **Using Docker directly:**
+   ```bash
+   # Build image
+   docker build -t mcp-bridge-server .
+   
+   # Run container
+   docker run -d \
+     --name mcp-bridge \
+     -p 3000:3000 \
+     -v $(pwd)/mcp-config.json:/app/mcp-config.json:ro \
+     -v $(pwd)/logs:/app/logs \
+     mcp-bridge-server
+   ```
+
+### Configuration for Docker
+
+Create a Docker-specific configuration:
+```bash
+cp docker/mcp-config.docker.json mcp-config.json
+# Edit mcp-config.json with your settings
+```
+
+### Advanced Docker Operations
+
+The included `docker/build.sh` script provides advanced operations:
+
+```bash
+# Build with specific tag
+./docker/build.sh --action build --tag v1.0.0
+
+# Build and push to registry
+./docker/build.sh --action build --tag v1.0.0 --push
+
+# Clean up Docker resources
+./docker/build.sh --action clean
+```
+
+### Multi-Service Architecture
+
+Deploy MCP servers as separate containers:
+```yaml
+# docker-compose.yml
+services:
+  mcp-bridge:
+    build: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mcp-filesystem
+      - mcp-search
+      
+  mcp-filesystem:
+    image: your-filesystem-server:latest
+    
+  mcp-search:
+    image: your-search-server:latest
+```
+
+### Health Monitoring
+
+```bash
+# Check container health
+docker ps
+
+# View health check endpoint
+curl http://localhost:3000/health
+
+# Monitor logs
+docker-compose logs -f
+```
+
+See [docker/README.md](docker/README.md) for comprehensive Docker documentation.
+
+## Docker Deployment
+
+### Quick Docker Setup
+
+```bash
+# Build and run using docker-compose
+docker-compose up -d
+
+# Or using our build script
+./docker/build.sh --action run
+
+# Check service health
+curl http://localhost:3000/health
+
+# Stop the service
+./docker/build.sh --action stop
+```
+
+### Docker Commands
+
+```bash
+# Production deployment
+docker-compose up -d
+
+# Development mode with debugging
+docker-compose -f docker-compose.dev.yml up -d
+
+# Build only
+docker build -t mcp-bridge .
+
+# Run with custom configuration
+docker run -d \
+  -p 3000:3000 \
+  -v $(pwd)/my-mcp-config.json:/app/mcp-config.json:ro \
+  mcp-bridge:latest
+```
+
+### Docker Environment Variables
+
+- `NODE_ENV`: Set to `production` or `development`
+- `LOG_LEVEL`: Logging level (`debug`, `info`, `warn`, `error`)
+- `CONFIG_PATH`: Path to configuration file (default: `/app/mcp-config.json`)
+- `PORT`: Server port (default: `3000`)
+
 ### Production Deployment
 
 For production deployments with remote MCP servers:

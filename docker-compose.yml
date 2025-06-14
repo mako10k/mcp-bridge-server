@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  mcp-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: mcp-bridge-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - CONFIG_PATH=/app/mcp-config.json
+    volumes:
+      # Mount configuration file
+      - ./mcp-config.json:/app/mcp-config.json:ro
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+      # Optional: Mount additional MCP server binaries or scripts
+      # - ./mcp-servers:/app/mcp-servers:ro
+    networks:
+      - mcp-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.request({hostname: 'localhost', port: 3000, path: '/health', timeout: 2000}, (res) => { if (res.statusCode === 200) process.exit(0); else process.exit(1); }); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Example: Additional MCP server as a separate service
+  # mcp-server-example:
+  #   image: your-mcp-server:latest
+  #   container_name: mcp-server-example
+  #   restart: unless-stopped
+  #   networks:
+  #     - mcp-network
+  #   environment:
+  #     - MCP_SERVER_PORT=3001
+
+networks:
+  mcp-network:
+    driver: bridge
+
+volumes:
+  mcp-logs:
+    driver: local
