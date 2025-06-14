@@ -142,20 +142,24 @@ export class MCPHttpServer {
           },
           {
             name: 'call_tool',
-            description: 'Call a tool using namespaced name (serverId:toolName)',
+            description: 'Call a tool on a specific MCP server',
             inputSchema: {
               type: 'object',
               properties: {
-                name: {
+                serverId: {
                   type: 'string',
-                  description: 'Namespaced tool name in format "serverId:toolName"'
+                  description: 'The ID of the MCP server'
+                },
+                toolName: {
+                  type: 'string',
+                  description: 'The name of the tool to call'
                 },
                 arguments: {
                   type: 'object',
                   description: 'Arguments to pass to the tool'
                 }
               },
-              required: ['name']
+              required: ['serverId', 'toolName']
             }
           },
           {
@@ -228,10 +232,10 @@ export class MCPHttpServer {
             };
             
           case 'call_tool':
-            if (!args.name) {
-              throw new Error('name is required');
+            if (!args.serverId || !args.toolName) {
+              throw new Error('serverId and toolName are required');
             }
-            const result = await this.mcpManager.callToolByNamespace(args.name as string, args.arguments || {});
+            const result = await this.mcpManager.callTool(args.serverId as string, args.toolName as string, args.arguments || {});
             return {
               content: [{
                 type: 'text',

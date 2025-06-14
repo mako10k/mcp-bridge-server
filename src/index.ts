@@ -88,7 +88,7 @@ app.post('/mcp/servers/:serverId/tools/call', async (req, res) => {
   }
 });
 
-// Call a tool using namespaced name (serverId:toolName)
+// Call a tool using namespaced name (for backward compatibility with existing clients)
 const CallNamespacedToolSchema = z.object({
   name: z.string().regex(/^[^:]+:[^:]+$/, 'Tool name must be in format "serverId:toolName"'),
   arguments: z.record(z.any()).optional().default({})
@@ -98,7 +98,14 @@ app.post('/mcp/tools/call', async (req, res) => {
   try {
     const { name, arguments: toolArgs } = CallNamespacedToolSchema.parse(req.body);
     
-    const result = await mcpManager.callToolByNamespace(name, toolArgs);
+    // 名前空間形式を解析して、serverId と toolName に分割
+    const parts = name.split(':');
+    if (parts.length !== 2) {
+      throw new Error(`Invalid namespaced tool name: ${name}. Expected format: 'serverId:toolName'`);
+    }
+    
+    const [serverId, toolName] = parts;
+    const result = await mcpManager.callTool(serverId, toolName, toolArgs);
     res.json({ result });
   } catch (error) {
     logger.error(`Error calling namespaced tool:`, error);
