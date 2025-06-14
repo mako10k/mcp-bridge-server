@@ -21,6 +21,14 @@ interface NamespacedTool {
   inputSchema?: any;
 }
 
+interface RegisteredTool {
+  originalName: string;       // Original tool name
+  registeredName: string;     // New name (if renamed) or same as originalName
+  serverId: string;           // Source server ID
+  description?: string;       // Tool description
+  inputSchema?: any;          // Tool input schema
+}
+
 interface ToolConflict {
   toolName: string;
   servers: string[];
@@ -29,6 +37,7 @@ interface ToolConflict {
 export class MCPBridgeManager {
   private connections: Map<string, MCPConnection> = new Map();
   private config: MCPConfig | null = null;
+  private registeredTools: Map<string, RegisteredTool> = new Map(); // Track directly registered tools
 
   async initialize(configPath?: string): Promise<void> {
     logger.info('Initializing MCP Bridge Manager...');
@@ -377,5 +386,79 @@ export class MCPBridgeManager {
   async getToolByNamespace(namespacedName: string): Promise<NamespacedTool | null> {
     const allTools = await this.getAllTools();
     return allTools.find(tool => tool.namespacedName === namespacedName) || null;
+  }
+
+  // Register a direct tool (with optional rename)
+  async registerDirectTool(
+    namespacedName: string, 
+    newName?: string
+  ): Promise<RegisteredTool> {
+    // Validate the namespaced name format
+    const parts = namespacedName.split(':');
+    if (parts.length !== 2) {
+      throw new Error(`Invalid namespaced tool name: ${namespacedName}. Expected format: 'serverId:toolName'`);
+    }
+    
+    const [serverId, toolName] = parts;
+    
+    // Check if server exists and is connected
+    if (!this.connections.has(serverId) || !this.connections.get(serverId)?.connected) {
+      throw new Error(`MCP server ${serverId} not found or not connected`);
+    }
+    
+    // Get the tool details to verify it exists
+    const tool = await this.getToolByNamespace(namespacedName);
+    if (!tool) {
+      throw new Error(`Tool ${toolName} not found on server ${serverId}`);
+    }
+    
+    // Use provided new name or original tool name
+    const registeredName = newName || toolName;
+    
+    // Check if the registered name already exists
+    if (this.registeredTools.has(registeredName)) {
+      throw new Error(`A tool with name ${registeredName} is already registered. Please choose a different name.`);
+    }
+    
+    // Register the tool
+    const registeredTool: RegisteredTool = {
+      originalName: toolName,
+      registeredName,
+      serverId,
+      description: tool.description,
+      inputSchema: tool.inputSchema
+    };
+    
+    this.registeredTools.set(registeredName, registeredTool);
+    logger.info(`Direct tool registered: ${registeredName} -> ${namespacedName}`);
+    
+    return registeredTool;
+  }
+
+  // Unregister a directly registered tool
+  unregisterDirectTool(registeredName: string): boolean {
+    if (!this.registeredTools.has(registeredName)) {
+      throw new Error(`No registered tool found with name: ${registeredName}`);
+    }
+    
+    const result = this.registeredTools.delete(registeredName);
+    logger.info(`Direct tool unregistered: ${registeredName}`);
+    
+    return result;
+  }
+
+  // List all directly registered tools
+  getRegisteredDirectTools(): RegisteredTool[] {
+    return Array.from(this.registeredTools.values());
+  }
+
+  // Call a direct registered tool by its registered name
+  async callDirectTool(registeredName: string, arguments_: Record<string, any>): Promise<any> {
+    const registeredTool = this.registeredTools.get(registeredName);
+    if (!registeredTool) {
+      throw new Error(`No registered tool found with name: ${registeredName}`);
+    }
+    
+    return this.callTool(registeredTool.serverId, registeredTool.originalName, arguments_);
   }
 }

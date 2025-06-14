@@ -73,6 +73,66 @@ export class MCPMetaServer {
               required: ['serverId'],
             },
           },
+          // ツール直接登録/管理機能
+          {
+            name: 'register_direct_tool',
+            description: 'Register a tool for direct access (with optional rename)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                namespacedName: {
+                  type: 'string',
+                  description: 'The namespaced tool name to register (format: "serverId:toolName")',
+                },
+                newName: {
+                  type: 'string',
+                  description: 'Optional new name for the tool (if different from original name)',
+                },
+              },
+              required: ['namespacedName'],
+            },
+          },
+          {
+            name: 'unregister_direct_tool',
+            description: 'Remove a directly registered tool',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                registeredName: {
+                  type: 'string',
+                  description: 'The registered name of the tool to remove',
+                },
+              },
+              required: ['registeredName'],
+            },
+          },
+          {
+            name: 'list_registered_tools',
+            description: 'List all directly registered tools',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+              required: [],
+            },
+          },
+          {
+            name: 'call_direct_tool',
+            description: 'Call a directly registered tool by its registered name',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                registeredName: {
+                  type: 'string',
+                  description: 'The registered name of the tool to call',
+                },
+                arguments: {
+                  type: 'object',
+                  description: 'Arguments to pass to the tool',
+                },
+              },
+              required: ['registeredName'],
+            },
+          },
           {
             name: 'call_tool',
             description: 'Call a tool using namespaced name (serverId:toolName)',
@@ -185,6 +245,66 @@ export class MCPMetaServer {
                 {
                   type: 'text',
                   text: JSON.stringify({ conflicts }, null, 2),
+                },
+              ],
+            };
+            
+          // ツール直接登録/管理機能のハンドラー
+          case 'register_direct_tool':
+            if (!args.namespacedName) {
+              throw new Error('namespacedName is required');
+            }
+            const registeredTool = await this.mcpManager.registerDirectTool(
+              args.namespacedName as string,
+              args.newName as string | undefined
+            );
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({ tool: registeredTool }, null, 2),
+                },
+              ],
+            };
+            
+          case 'unregister_direct_tool':
+            if (!args.registeredName) {
+              throw new Error('registeredName is required');
+            }
+            const unregisterResult = this.mcpManager.unregisterDirectTool(args.registeredName as string);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({ success: unregisterResult }, null, 2),
+                },
+              ],
+            };
+            
+          case 'list_registered_tools':
+            const registeredTools = this.mcpManager.getRegisteredDirectTools();
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({ tools: registeredTools }, null, 2),
+                },
+              ],
+            };
+            
+          case 'call_direct_tool':
+            if (!args.registeredName) {
+              throw new Error('registeredName is required');
+            }
+            const directToolResult = await this.mcpManager.callDirectTool(
+              args.registeredName as string,
+              args.arguments || {}
+            );
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({ result: directToolResult }, null, 2),
                 },
               ],
             };

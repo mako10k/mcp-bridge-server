@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-06-15
+
+### Added
+- Add direct tool registration capability with optional tool renaming
+- Add ability to call registered tools directly by their registered name
+- Add tool management features:
+  - `register_direct_tool`: Register a tool from any server for direct access
+  - `unregister_direct_tool`: Remove a registered tool
+  - `list_registered_tools`: List all directly registered tools
+  - `call_direct_tool`: Call a registered tool by its registered name
+- Add persistent tool registry for improved client access 
+
 ## [1.1.2] - 2025-06-14
 
 ### Fixed
