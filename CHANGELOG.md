@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2025-06-14
+
+### Fixed
+- Fix HTTP and SSE transport constructor calls to properly accept URL as first parameter
+- Fix issue `TypeError: Failed to parse URL from [object Object]` in HTTP and SSE connections
+- Add improved URL validation and more detailed error reporting
+- Add enhanced debugging logs for transport creation
+- Add test SSE server configuration (disabled) for easier testing
+
+### Changed
+- Update constructor parameter order for transports to match SDK spec
+- Move headers to `requestInit.headers` structure for better compliance
+
+## [1.1.1] - 2025-06-14
+
+### Added
+- Add Docker publishing automation with GitHub Actions
+- Add multi-architecture builds (amd64, arm64) for Docker images
+- Add Docker publishing documentation in DOCKER_PUBLISH.md
+
+## [1.1.0] - 2025-06-14
+
+### Added
+- Add comprehensive Docker support with multi-stage builds
+- Add production and development Docker configurations
+- Add Docker Compose configurations for easy deployment
+- Add container management script (docker/build.sh)
+- Add Docker documentation and usage examples
+- Add health check for container monitoring
+
 ## [1.0.0] - 2025-06-14
 
 ### Added
