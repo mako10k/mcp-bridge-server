@@ -11,19 +11,6 @@
       "maxRestarts": 3
     },
     {
-      "name": "brave-search",
-      "transport": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
-      "env": {
-        "BRAVE_API_KEY": ""
-      },
-      "enabled": false,
-      "timeout": 30000,
-      "restartOnFailure": true,
-      "maxRestarts": 3
-    },
-    {
         "name": "google-search",
         "transport": "http",
         "url": "http://localhost:3003/mcp",
@@ -33,10 +20,20 @@
         "maxRestarts": 3
     },
     {
-        "name": "test-sse-server",
-        "transport": "sse",
-        "url": "http://localhost:3001/sse",
-        "enabled": false,
+        "name": "git",
+        "transport": "stdio",
+        "command": "npm",
+        "args": [
+            "exec",
+            "git-mcp-server"
+        ],
+        "env": {
+            "GIT_DEFAULT_PATH": "${HOME}",
+            "GIT_MAX_MEMORY": "1024",
+            "GIT_CACHE_TTL": "300",
+            "GIT_LOG_LEVEL": "${LOG_LEVEL:-info}"
+        },
+        "enabled": true,
         "timeout": 30000,
         "restartOnFailure": true,
         "maxRestarts": 3

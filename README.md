@@ -12,9 +12,10 @@ A TypeScript-based HTTP gateway for multiple STDIO-based MCP (Model Context Prot
 - **HTTP Gateway**: Provides RESTful API endpoints for MCP server interactions
 - **Multi-Transport Support**: Supports STDIO, SSE, and HTTP transports for MCP servers
 - **Multi-Server Support**: Connect to multiple MCP servers simultaneously
-- **Dynamic Configuration**: JSON-based server configuration with hot-reload capabilities
+- **Dynamic Configuration**: JSON-based server configuration with environment variable expansion
 - **Tool Name Conflict Resolution**: Automatic detection and namespace-based resolution
-- **MCP Meta Server**: Acts as an MCP server providing meta-tools for bridge management
+- **Internal Tool Registry**: Manages tools directly within the bridge for efficient access
+- **Direct Tool Registration**: Register tools from any server for direct access
 - **Robust Error Handling**: Comprehensive error handling for all transport types
 - **Comprehensive Logging**: Detailed logging for debugging MCP connections
 - **Type Safety**: Full TypeScript implementation with strict type checking
@@ -205,50 +206,59 @@ Logs include:
 - Request/response information
 - Error details with stack traces
 
-## MCP Meta Server
+## Tool Registry
 
-The MCP Bridge Server can also operate as an MCP server itself, providing meta-tools for managing the bridge and connected servers.
+The MCP Bridge Server includes an internal Tool Registry that manages tools and provides a unified interface for all tool operations.
 
-### Running as MCP Server
+### Tool Registry Features
 
-```bash
-# Start as pure MCP server (stdio)
-npm run mcp-server
+The Bridge Tool Registry provides the following features:
 
-# Or use the HTTP endpoint for MCP protocol messages
-curl -X POST http://localhost:3000/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {...}}'
-```
+- **Direct Tool Registration**: Register tools from any server for direct access through the bridge
+- **Tool Namespacing**: Assign unique names to tools to avoid conflicts
+- **Tool Lookup**: Find tools across all connected servers
+- **Tool Management**: Register, unregister, and list tools
 
-### Meta Tools Available
+### Available Registry Tools
 
-The MCP Bridge provides the following meta-tools:
+The Bridge Tool Registry provides the following management tools:
 
 - **`list_servers`**: List all connected MCP servers
 - **`list_all_tools`**: List all tools from all servers with namespace info
 - **`list_conflicts`**: Detect tool name conflicts between servers
 - **`list_server_tools`**: List tools from a specific server
-- **`call_server_tool`**: Call a tool on a specific MCP server (requires serverId and toolName)
-- **`call_server_tool`**: Call a tool on a specific server
+- **`call_server_tool`**: Call a tool on a specific MCP server
+- **`register_direct_tool`**: Register a tool for direct access
+- **`unregister_direct_tool`**: Remove a registered tool
+- **`list_registered_tools`**: List all directly registered tools
 - **`list_server_resources`**: List resources from a specific server
 - **`read_server_resource`**: Read a resource from a specific server
 
-### Example: Using as MCP Server
+### Example: Using the Tool Registry
 
-```json
-{
-  "mcpServers": {
-    "mcp-bridge-meta": {
-      "command": "npm",
-      "args": ["run", "mcp-server"],
-      "cwd": "/path/to/mcp-bridge"
+```bash
+# List available servers
+curl http://localhost:3000/mcp/servers
+
+# Register a tool for direct access
+curl -X POST http://localhost:3000/mcp/servers/bridge-tool-registry/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "register_direct_tool", 
+    "arguments": {
+      "serverId": "filesystem",
+      "toolName": "read_file",
+      "newName": "fs_read"
     }
-  }
-}
+  }'
+
+# List all registered tools
+curl -X POST http://localhost:3000/mcp/servers/bridge-tool-registry/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{"name": "list_registered_tools", "arguments": {}}'
 ```
 
-This allows you to manage multiple MCP servers through a single meta-server interface.
+This provides a flexible and unified way to manage tools across multiple MCP servers.
 
 ## Tool Name Conflict Resolution
 
@@ -713,6 +723,48 @@ For HTTP-based MCP servers using StreamableHTTP:
   ]
 }
 ```
+
+## Environment Variable Expansion
+
+The MCP Bridge Server supports environment variable expansion in the configuration file. Any string value in the configuration file can use `${VARIABLE_NAME}` syntax to reference environment variables.
+
+### Example:
+
+```json
+{
+  "servers": [
+    {
+      "name": "filesystem",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${HOME}/data"],
+      "env": {
+        "DEBUG": "${DEBUG_LEVEL:-false}",
+        "MAX_MEMORY": "${MAX_MEMORY:-1024}",
+        "USER_PATH": "${HOME}/user"
+      }
+    },
+    {
+      "name": "http-server",
+      "transport": "http",
+      "url": "${API_URL:-http://localhost:3001}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${API_TOKEN}"
+      }
+    }
+  ]
+}
+```
+
+### Usage Notes:
+
+- If an environment variable is not defined, the original string (`${VAR}`) remains unchanged
+- Environment variable expansion works in all string values throughout the configuration
+- This is especially useful for:
+  - Paths and directories
+  - API keys and tokens
+  - URLs and endpoints
+  - Environment-specific settings
 
 ## Contributing
 

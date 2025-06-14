@@ -7,15 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.1] - 2025-06-16
 
+### Added
+- Add environment variable expansion in configuration files using ${VAR} syntax
+- Add support for default values in environment variables with ${VAR:-default} syntax
+- Add comprehensive README documentation for environment variable usage
+
 ### Removed
 - **Breaking**: Remove deprecated `/mcp/tools/call` endpoint with namespaced tool format
 - Remove all references to old namespaced tool call method
 - Remove legacy tool schema definitions from API surface
 
 ### Changed
-- Rename `MCPMetaServer` to `BridgeToolRegistry` for better clarity and to avoid confusion
+- Refactor `MCPMetaServer` to `BridgeToolRegistry` with pure in-process implementation
+- Remove MCP server instance creation from BridgeToolRegistry
+- Update implementation to call registry methods directly instead of via MCP protocol
 - Update internal references from `mcp-bridge-meta` to `bridge-tool-registry`
-- Update documentation to reflect current API design
+- Update documentation to reflect current API design and architecture
 - Standardize on explicit `serverId` and `toolName` parameters throughout codebase
 - Ensure tool schema definitions match actual implementation
 
