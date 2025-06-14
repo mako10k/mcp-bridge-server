@@ -18,6 +18,8 @@ app.use(express.json());
 // Initialize MCP Bridge Manager and Tool Registry
 const mcpManager = new MCPBridgeManager();
 const toolRegistry = new BridgeToolRegistry(mcpManager);
+// ツールレジストリへの参照を設定
+mcpManager.setToolRegistry(toolRegistry);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

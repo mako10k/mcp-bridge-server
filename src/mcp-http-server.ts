@@ -299,12 +299,17 @@ export class MCPHttpServer {
               
               logger.info(`Registering direct tool via HTTP: ${toolName} (${serverId}:${originalToolName})`);
               
-              // MCPMetaServerへの呼び出しを作成
-              const toolRegistrationResult = await this.mcpManager.callTool(
-                'bridge-tool-registry',
-                'register_direct_tool',
-                { serverId, toolName: originalToolName, newName: toolName }
-              );
+              // 直接ツールレジストリを参照して登録（MCPプロトコル不要）
+              const bridgeToolRegistry = this.mcpManager.getToolRegistry();
+              if (!bridgeToolRegistry) {
+                throw new Error('Bridge Tool Registry is not available');
+              }
+              
+              const toolRegistrationResult = await bridgeToolRegistry.handleRegisterDirectTool({
+                serverId: serverId,
+                toolName: originalToolName,
+                newName: toolName
+              });
               
               return {
                 content: [{
@@ -335,12 +340,15 @@ export class MCPHttpServer {
               const toolName = args.toolName as string;
               logger.info(`Unregistering direct tool via HTTP: ${toolName}`);
               
-              // MCPMetaServerに中継
-              const unregisterResult = await this.mcpManager.callTool(
-                'bridge-tool-registry',
-                'unregister_direct_tool',
-                { toolName }
-              );
+              // 直接ツールレジストリを参照して登録解除
+              const bridgeToolRegistry = this.mcpManager.getToolRegistry();
+              if (!bridgeToolRegistry) {
+                throw new Error('Bridge Tool Registry is not available');
+              }
+              
+              const unregisterResult = await bridgeToolRegistry.handleUnregisterDirectTool({
+                toolName
+              });
               
               return {
                 content: [{
@@ -366,12 +374,13 @@ export class MCPHttpServer {
             try {
               logger.info(`Listing registered tools via HTTP`);
               
-              // MCPMetaServerに中継
-              const listResult = await this.mcpManager.callTool(
-                'bridge-tool-registry',
-                'list_registered_tools',
-                {}
-              );
+              // 直接ツールレジストリを参照して一覧取得
+              const bridgeToolRegistry = this.mcpManager.getToolRegistry();
+              if (!bridgeToolRegistry) {
+                throw new Error('Bridge Tool Registry is not available');
+              }
+              
+              const listResult = await bridgeToolRegistry.handleListRegisteredTools();
               
               return {
                 content: [{

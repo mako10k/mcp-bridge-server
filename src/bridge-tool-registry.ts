@@ -1,8 +1,16 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
 import { logger } from './utils/logger.js';
+
+// BridgeToolRegistry インターフェイス
+export interface IBridgeToolRegistry {
+  getTools(): ToolDefinition[];
+  callTool(name: string, args?: any): Promise<any>;
+  handleRegisterDirectTool(args: any): Promise<any>;
+  handleUnregisterDirectTool(args: any): Promise<any>;
+  handleListRegisteredTools(): Promise<any>;
+  startStdioServer(): Promise<void>;
+  shutdown(): Promise<void>;
+}
 
 // 直接登録されたツールの情報を格納する型
 interface RegisteredToolInfo {
@@ -13,486 +21,392 @@ interface RegisteredToolInfo {
   inputSchema: any;         // 入力スキーマ
 }
 
-export class BridgeToolRegistry {
-  private server: Server;
+// ツール情報を表す型
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: any;
+}
+
+/**
+ * ブリッジ内部のツール管理クラス
+ * 外部MCPサーバーではなく、内部コンポーネントとして機能する
+ */
+export class BridgeToolRegistry implements IBridgeToolRegistry {
   private mcpManager: MCPBridgeManager;
   private registeredTools: Map<string, RegisteredToolInfo> = new Map(); // 直接登録されたツールを管理するマップ
+  private standardTools: ToolDefinition[] = [];
 
   constructor(mcpManager: MCPBridgeManager) {
     this.mcpManager = mcpManager;
-    
-    this.server = new Server(
+    this.initializeStandardTools();
+    logger.info('Bridge Tool Registry initialized');
+  }
+
+  /**
+   * 標準ツールの定義を初期化
+   */
+  private initializeStandardTools(): void {
+    this.standardTools = [
       {
-        name: 'bridge-tool-registry',
-        version: '1.0.0',
+        name: 'list_servers',
+        description: 'List all available MCP servers connected to the bridge',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: [],
+        },
       },
       {
-        capabilities: {
-          tools: {},
-        }
-        // SDK内部でプロトコルバージョン交渉が行われる
-      }
-    );
-
-    this.setupTools();
+        name: 'list_all_tools',
+        description: 'List all tools from all connected MCP servers with namespace information',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: [],
+        },
+      },
+      {
+        name: 'list_conflicts',
+        description: 'Get tool name conflicts between different MCP servers',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: [],
+        },
+      },
+      {
+        name: 'list_server_tools',
+        description: 'List tools from a specific MCP server',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            serverId: {
+              type: 'string',
+              description: 'The ID of the MCP server',
+            },
+          },
+          required: ['serverId'],
+        },
+      },
+      {
+        name: 'register_direct_tool',
+        description: 'Register a tool for direct access (with optional rename)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            serverId: {
+              type: 'string',
+              description: 'The ID of the MCP server',
+            },
+            toolName: {
+              type: 'string',
+              description: 'The name of the tool to register',
+            },
+            newName: {
+              type: 'string',
+              description: 'Optional new name for the tool (if different from original name)',
+            },
+          },
+          required: ['serverId', 'toolName'],
+        },
+      },
+      {
+        name: 'unregister_direct_tool',
+        description: 'Remove a directly registered tool',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            toolName: {
+              type: 'string',
+              description: 'The name of the tool to remove (must be a previously registered tool)',
+            },
+          },
+          required: ['toolName'],
+        },
+      },
+      {
+        name: 'list_registered_tools',
+        description: 'List all directly registered tools',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: [],
+        },
+      },
+      {
+        name: 'call_server_tool',
+        description: 'Call a tool on a specific MCP server',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            serverId: {
+              type: 'string',
+              description: 'The ID of the MCP server',
+            },
+            toolName: {
+              type: 'string',
+              description: 'The name of the tool to call',
+            },
+            arguments: {
+              type: 'object',
+              description: 'Arguments to pass to the tool',
+            },
+          },
+          required: ['serverId', 'toolName'],
+        },
+      },
+      {
+        name: 'list_server_resources',
+        description: 'List resources from a specific MCP server',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            serverId: {
+              type: 'string',
+              description: 'The ID of the MCP server',
+            },
+          },
+          required: ['serverId'],
+        },
+      },
+      {
+        name: 'read_server_resource',
+        description: 'Read a resource from a specific MCP server',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            serverId: {
+              type: 'string',
+              description: 'The ID of the MCP server',
+            },
+            resourceUri: {
+              type: 'string',
+              description: 'The URI of the resource to read',
+            },
+          },
+          required: ['serverId', 'resourceUri'],
+        },
+      },
+    ];
   }
 
-  private setupTools(): void {
-    // List all available MCP servers
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      // 標準ツールのリスト
-      const standardTools = [
-          {
-            name: 'list_servers',
-            description: 'List all available MCP servers connected to the bridge',
-            inputSchema: {
-              type: 'object',
-              properties: {},
-              required: [],
-            },
-          },
-          {
-            name: 'list_all_tools',
-            description: 'List all tools from all connected MCP servers with namespace information',
-            inputSchema: {
-              type: 'object',
-              properties: {},
-              required: [],
-            },
-          },
-          {
-            name: 'list_conflicts',
-            description: 'Get tool name conflicts between different MCP servers',
-            inputSchema: {
-              type: 'object',
-              properties: {},
-              required: [],
-            },
-          },
-          {
-            name: 'list_server_tools',
-            description: 'List tools from a specific MCP server',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                serverId: {
-                  type: 'string',
-                  description: 'The ID of the MCP server',
-                },
-              },
-              required: ['serverId'],
-            },
-          },
-          // ツール直接登録/管理機能
-          {
-            name: 'register_direct_tool',
-            description: 'Register a tool for direct access (with optional rename)',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                serverId: {
-                  type: 'string',
-                  description: 'The ID of the MCP server',
-                },
-                toolName: {
-                  type: 'string',
-                  description: 'The name of the tool to register',
-                },
-                newName: {
-                  type: 'string',
-                  description: 'Optional new name for the tool (if different from original name)',
-                },
-              },
-              required: ['serverId', 'toolName'],
-            },
-          },
-          {
-            name: 'unregister_direct_tool',
-            description: 'Remove a directly registered tool',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                toolName: {
-                  type: 'string',
-                  description: 'The name of the tool to remove (must be a previously registered tool)',
-                },
-              },
-              required: ['toolName'],
-            },
-          },
-          {
-            name: 'list_registered_tools',
-            description: 'List all directly registered tools',
-            inputSchema: {
-              type: 'object',
-              properties: {},
-              required: [],
-            },
-          },
-          {
-            name: 'call_server_tool',
-            description: 'Call a tool on a specific MCP server',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                serverId: {
-                  type: 'string',
-                  description: 'The ID of the MCP server',
-                },
-                toolName: {
-                  type: 'string',
-                  description: 'The name of the tool to call',
-                },
-                arguments: {
-                  type: 'object',
-                  description: 'Arguments to pass to the tool',
-                },
-              },
-              required: ['serverId', 'toolName'],
-            },
-          },
-          {
-            name: 'list_server_resources',
-            description: 'List resources from a specific MCP server',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                serverId: {
-                  type: 'string',
-                  description: 'The ID of the MCP server',
-                },
-              },
-              required: ['serverId'],
-            },
-          },
-          {
-            name: 'read_server_resource',
-            description: 'Read a resource from a specific MCP server',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                serverId: {
-                  type: 'string',
-                  description: 'The ID of the MCP server',
-                },
-                resourceUri: {
-                  type: 'string',
-                  description: 'The URI of the resource to read',
-                },
-              },
-              required: ['serverId', 'resourceUri'],
-            },
-          },
-      ];
+  /**
+   * 標準ツールと登録済みツールを含む全ツールのリストを取得
+   */
+  public getTools(): ToolDefinition[] {
+    // 標準ツールをコピー
+    const allTools = [...this.standardTools];
+    
+    // 登録済みのダイナミックツールをリストに追加
+    const dynamicTools = Array.from(this.registeredTools.entries()).map(([registeredName, tool]) => ({
+      name: registeredName,
+      description: tool.description || `Registered tool from ${tool.serverId} (original: ${tool.originalName})`,
+      inputSchema: tool.inputSchema
+    }));
+    
+    // 両方を結合して返す
+    return [...allTools, ...dynamicTools];
+  }
 
-      // 登録済みのダイナミックツールをリストに追加
-      const dynamicTools = Array.from(this.registeredTools.entries()).map(([registeredName, tool]) => ({
-        name: registeredName,  // 登録名で表示
-        description: tool.description || `Registered tool from ${tool.serverId} (original: ${tool.originalName})`,
-        inputSchema: tool.inputSchema
-      }));
+  /**
+   * ツールを呼び出す
+   */
+  public async callTool(name: string, args: any = {}): Promise<any> {
+    try {
+      // 登録済みツールであれば、そのツールの元のサーバーとツール名にリダイレクト
+      const registeredTool = this.registeredTools.get(name);
+      if (registeredTool) {
+        logger.info(`Calling registered tool: ${name} -> ${registeredTool.namespacedName}`);
+        try {
+          const result = await this.mcpManager.callTool(
+            registeredTool.serverId, 
+            registeredTool.originalName, 
+            args
+          );
+          return { result };
+        } catch (error) {
+          logger.error(`Error calling registered tool ${name}:`, error);
+          throw new Error(`Error calling tool: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+      
+      // 標準ツールの処理
+      switch (name) {
+        case 'list_servers':
+          return {
+            servers: this.mcpManager.getAvailableServers(),
+          };
 
-      // 標準ツールと登録ツールを結合して返す
-      return {
-        tools: [...standardTools, ...dynamicTools],
-      };
-    });
+        case 'list_all_tools':
+          return {
+            tools: await this.mcpManager.getAllTools(),
+          };
 
-    // Handle tool calls
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      try {
-        const { name, arguments: args = {} } = request.params;
-        
-        // 登録済みツールであれば、そのツールの元のサーバーとツール名にリダイレクト
-        const registeredTool = this.registeredTools.get(name);
-        if (registeredTool) {
-          logger.info(`Calling registered tool: ${name} -> ${registeredTool.namespacedName}`);
-          try {
-            // 元のサーバーとツール名を使ってツールを呼び出す
-            const result = await this.mcpManager.callTool(
-              registeredTool.serverId, 
-              registeredTool.originalName, 
-              args
-            );
-            
-            // 結果を返す
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(result, null, 2),
-                },
-              ],
-            };
-          } catch (error) {
-            logger.error(`Error calling registered tool ${name}:`, error);
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({
-                    error: error instanceof Error ? error.message : 'Unknown error'
-                  }, null, 2),
-                },
-              ],
-              isError: true,
-            };
+        case 'list_conflicts':
+          return {
+            conflicts: await this.mcpManager.getToolConflicts(),
+          };
+          
+        case 'register_direct_tool':
+          return await this.handleRegisterDirectTool(args);
+          
+        case 'unregister_direct_tool':
+          return await this.handleUnregisterDirectTool(args);
+          
+        case 'list_registered_tools':
+          return await this.handleListRegisteredTools();
+
+        case 'list_server_tools':
+          if (!args.serverId) {
+            throw new Error('serverId is required');
           }
-        }
-        
-        // 標準ツールの処理
+          return {
+            tools: await this.mcpManager.listTools(args.serverId as string),
+          };
 
-        switch (name) {
-          case 'list_servers':
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({
-                    servers: this.mcpManager.getAvailableServers(),
-                  }, null, 2),
-                },
-              ],
-            };
+        case 'call_server_tool':
+          if (!args.serverId || !args.toolName) {
+            throw new Error('serverId and toolName are required');
+          }
+          return {
+            result: await this.mcpManager.callTool(args.serverId as string, args.toolName as string, args.arguments || {}),
+          };
 
-          case 'list_all_tools':
-            const allTools = await this.mcpManager.getAllTools();
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({ tools: allTools }, null, 2),
-                },
-              ],
-            };
+        case 'list_server_resources':
+          if (!args.serverId) {
+            throw new Error('serverId is required');
+          }
+          return {
+            resources: await this.mcpManager.listResources(args.serverId as string),
+          };
 
-          case 'list_conflicts':
-            const conflicts = await this.mcpManager.getToolConflicts();
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({ conflicts }, null, 2),
-                },
-              ],
-            };
-            
-          // ツール直接登録/管理機能のハンドラー
-          case 'register_direct_tool':
-            if (!args.serverId || !args.toolName) {
-              throw new Error('serverId and toolName are required');
-            }
-            try {
-              const serverId = args.serverId as string;
-              const originalToolName = args.toolName as string;
-              const namespacedName = `${serverId}:${originalToolName}`;
-              const toolName = args.newName as string || originalToolName;
-              
-              // ツールが存在するか確認
-              const sourceServer = await this.mcpManager.getToolByNamespace(namespacedName);
-              if (!sourceServer) {
-                throw new Error(`Tool ${originalToolName} not found on server ${serverId}`);
-              }
-              
-              // 同じ名前のツールが既に登録されていないか確認
-              if (this.registeredTools.has(toolName)) {
-                throw new Error(`A tool with name ${toolName} is already registered`);
-              }
-              
-              // ツール情報を保存
-              const toolInfo: RegisteredToolInfo = {
-                namespacedName,
-                serverId,
-                originalName: originalToolName,
-                description: sourceServer.description,
-                inputSchema: sourceServer.inputSchema
-              };
-              
-              this.registeredTools.set(toolName, toolInfo);
-              
-              // ツールのハンドラーを動的に登録
-              this.registerDynamicToolHandler(toolName, toolInfo);
-              
-              logger.info(`Registered direct tool: ${toolName} (${serverId}:${originalToolName})`);
-              
-              return {
-                content: [
-                  {
-                    type: 'text',
-                    text: JSON.stringify({ 
-                      success: true, 
-                      tool: {
-                        name: toolName,
-                        serverId,
-                        originalName: originalToolName,
-                        description: sourceServer.description
-                      }
-                    }, null, 2),
-                  },
-                ],
-              };
-            } catch (error) {
-              logger.error(`Error registering direct tool:`, error);
-              return {
-                content: [
-                  {
-                    type: 'text',
-                    text: JSON.stringify({
-                      success: false,
-                      error: error instanceof Error ? error.message : 'Unknown error'
-                    }, null, 2),
-                  },
-                ],
-                isError: true,
-              };
-            }
-            
-          case 'unregister_direct_tool':
-            if (!args.toolName) {
-              throw new Error('toolName is required');
-            }
-            
-            const toolName = args.toolName as string;
-            
-            // ツールが登録済みかどうかを確認
-            if (!this.registeredTools.has(toolName)) {
-              return {
-                content: [
-                  {
-                    type: 'text',
-                    text: JSON.stringify({ 
-                      success: false, 
-                      error: `No registered tool found with name: ${toolName}` 
-                    }, null, 2),
-                  },
-                ],
-                isError: true,
-              };
-            }
-            
-            // 登録を削除
-            this.registeredTools.delete(toolName);
-            logger.info(`Unregistered direct tool: ${toolName}`);
-            
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({ success: true }, null, 2),
-                },
-              ],
-            };
-            
-          case 'list_registered_tools':
-            // 登録済みツールの情報を簡略化して返す
-            const registeredTools = Array.from(this.registeredTools.entries()).map(([name, info]) => ({
-              name,
-              namespacedName: info.namespacedName,
-              serverId: info.serverId,
-              originalName: info.originalName,
-              description: info.description
-            }));
-            
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({ tools: registeredTools }, null, 2),
-                },
-              ],
-            };
-            
+        case 'read_server_resource':
+          if (!args.serverId || !args.resourceUri) {
+            throw new Error('serverId and resourceUri are required');
+          }
+          return {
+            resource: await this.mcpManager.readResource(args.serverId as string, args.resourceUri as string),
+          };
 
-
-          case 'list_server_tools':
-            if (!args.serverId) {
-              throw new Error('serverId is required');
-            }
-            const tools = await this.mcpManager.listTools(args.serverId as string);
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({ tools }, null, 2),
-                },
-              ],
-            };
-
-          case 'call_server_tool':
-            if (!args.serverId || !args.toolName) {
-              throw new Error('serverId and toolName are required');
-            }
-            const result = await this.mcpManager.callTool(args.serverId as string, args.toolName as string, args.arguments || {});
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({ result }, null, 2),
-                },
-              ],
-            };
-
-          case 'list_server_resources':
-            if (!args.serverId) {
-              throw new Error('serverId is required');
-            }
-            const resources = await this.mcpManager.listResources(args.serverId as string);
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({ resources }, null, 2),
-                },
-              ],
-            };
-
-          case 'read_server_resource':
-            if (!args.serverId || !args.resourceUri) {
-              throw new Error('serverId and resourceUri are required');
-            }
-            const resource = await this.mcpManager.readResource(args.serverId as string, args.resourceUri as string);
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({ resource }, null, 2),
-                },
-              ],
-            };
-
-          default:
-            throw new Error(`Unknown tool: ${name}`);
-        }
-      } catch (error) {
-        logger.error(`Error executing registry tool ${request.params.name}:`, error);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                error: error instanceof Error ? error.message : 'Unknown error',
-              }, null, 2),
-            },
-          ],
-          isError: true,
-        };
+        default:
+          throw new Error(`Unknown tool: ${name}`);
       }
-    });
+    } catch (error) {
+      logger.error(`Error executing registry tool ${name}:`, error);
+      throw new Error(`Error executing tool: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
-  async startStdioServer(): Promise<void> {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    logger.info('Bridge Tool Registry started on stdio');
+  /**
+   * 直接ツール登録処理
+   */
+  public async handleRegisterDirectTool(args: any): Promise<any> {
+    if (!args.serverId || !args.toolName) {
+      throw new Error('serverId and toolName are required');
+    }
+    
+    try {
+      const serverId = args.serverId as string;
+      const originalToolName = args.toolName as string;
+      const namespacedName = `${serverId}:${originalToolName}`;
+      const toolName = args.newName as string || originalToolName;
+      
+      // ツールが存在するか確認
+      const sourceServer = await this.mcpManager.getToolByNamespace(namespacedName);
+      if (!sourceServer) {
+        throw new Error(`Tool ${originalToolName} not found on server ${serverId}`);
+      }
+      
+      // 同じ名前のツールが既に登録されていないか確認
+      if (this.registeredTools.has(toolName)) {
+        throw new Error(`A tool with name ${toolName} is already registered`);
+      }
+      
+      // ツール情報を保存
+      const toolInfo: RegisteredToolInfo = {
+        namespacedName,
+        serverId,
+        originalName: originalToolName,
+        description: sourceServer.description,
+        inputSchema: sourceServer.inputSchema
+      };
+      
+      this.registeredTools.set(toolName, toolInfo);
+      
+      // ツールの登録をログ出力
+      this.registerDynamicToolHandler(toolName, toolInfo);
+      
+      logger.info(`Registered direct tool: ${toolName} (${serverId}:${originalToolName})`);
+      
+      return { 
+        success: true, 
+        tool: {
+          name: toolName,
+          serverId,
+          originalName: originalToolName,
+          description: sourceServer.description
+        }
+      };
+    } catch (error) {
+      logger.error(`Error registering direct tool:`, error);
+      throw new Error(`Registration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
-  async shutdown(): Promise<void> {
-    await this.server.close();
+  /**
+   * 直接ツール登録解除処理
+   */
+  public async handleUnregisterDirectTool(args: any): Promise<any> {
+    if (!args.toolName) {
+      throw new Error('toolName is required');
+    }
+    
+    const toolName = args.toolName as string;
+    
+    if (!this.registeredTools.has(toolName)) {
+      throw new Error(`No registered tool found with name: ${toolName}`);
+    }
+    
+    this.registeredTools.delete(toolName);
+    logger.info(`Unregistered direct tool: ${toolName}`);
+    
+    return { success: true };
+  }
+
+  /**
+   * 登録済みツール一覧取得処理
+   */
+  public async handleListRegisteredTools(): Promise<any> {
+    const registeredTools = Array.from(this.registeredTools.entries()).map(([name, info]) => ({
+      name,
+      namespacedName: info.namespacedName,
+      serverId: info.serverId,
+      originalName: info.originalName,
+      description: info.description
+    }));
+    
+    return { tools: registeredTools };
   }
   
-  // 登録済みツールのハンドリングを準備する（実際の呼び出しはCallToolRequestSchemaハンドラーで行う）
+  /**
+   * 互換性のためのダミーメソッド
+   */
+  public async startStdioServer(): Promise<void> {
+    logger.info('Bridge Tool Registry is an internal component, no STDIO server needed');
+  }
+  
+  /**
+   * 互換性のためのダミーメソッド
+   */
+  public async shutdown(): Promise<void> {
+    logger.info('Bridge Tool Registry shutdown');
+  }
+  
+  /**
+   * ツール登録通知（ログ出力のみ）
+   */
   private registerDynamicToolHandler(toolName: string, toolInfo: RegisteredToolInfo): void {
     logger.info(`Registered dynamic tool handler for: ${toolName} (${toolInfo.namespacedName})`);
-    // ハンドラーの処理はCallToolRequestSchemaの中で行うので、このメソッドは単なる通知用
   }
 }
