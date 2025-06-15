@@ -9,12 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - New configuration hot reload system with merged config from multiple sources
+- **Server retry mechanism with automatic reconnection**
+  - Automatic retry with exponential backoff for failed server connections
+  - Force retry API endpoints: `POST /mcp/servers/:serverId/retry` and `POST /mcp/servers/retry-all`
+  - New MCP tools: `retry_server`, `retry_all_servers`, `get_server_status`
+  - Detailed server status tracking including retry count, error messages, and next retry time
+  - Tool calls automatically trigger retry attempts regardless of previous retry limits
 
 ### Changed
 - Internationalized codebase by converting all comments to English
 - Renamed "Direct Registration" feature to "Tool Aliasing" for better clarity (`directTools` → `toolAliases`)
 - Renamed "Registration Patterns" feature to "Auto Tool Discovery" for better clarity (`registrationPatterns` → `toolDiscoveryRules`)
 - Improved backward compatibility with legacy configuration field names
+- **Enhanced `/mcp/servers` endpoint to include detailed status information**
+- **Updated `list_servers` MCP tool to provide comprehensive server status data**
+
+### Fixed
+- Server connection reliability through robust retry logic
+- Error handling and status reporting for MCP server connections
 
 ## [1.3.0] - 2025-06-15
 

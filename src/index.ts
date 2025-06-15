@@ -147,10 +147,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Get available MCP servers
+// Get available MCP servers with status information
 app.get('/mcp/servers', async (req, res) => {
   try {
-    const servers = mcpManager.getAvailableServers();
+    const servers = mcpManager.getDetailedServerInfo();
     res.json({ servers });
   } catch (error) {
     logger.error('Error getting MCP servers:', error);
@@ -237,6 +237,45 @@ app.get('/mcp/servers/:serverId/resources/:resourceUri', async (req, res) => {
     res.status(500).json({ error: 'Failed to read resource' });
   }
 });
+
+// Force retry for a specific server
+app.post('/mcp/servers/:serverId/retry', async (req, res) => {
+  try {
+    const serverId = req.params.serverId;
+    await mcpManager.forceRetryServer(serverId);
+    res.json({ 
+      success: true, 
+      message: `Retry initiated for server ${serverId}` 
+    });
+  } catch (error) {
+    logger.error(`Error retrying server ${req.params.serverId}:`, error);
+    res.status(500).json({ 
+      error: 'Failed to retry server',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Force retry for all failed servers
+app.post('/mcp/servers/retry-all', async (req, res) => {
+  try {
+    await mcpManager.forceRetryAllServers();
+    res.json({ 
+      success: true, 
+      message: 'Retry initiated for all failed servers' 
+    });
+  } catch (error) {
+    logger.error('Error retrying all servers:', error);
+    res.status(500).json({ 
+      error: 'Failed to retry all servers',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// TODO: Get detailed status for a specific server
+// This endpoint needs investigation due to type issues
+// Status information is available via the /mcp/servers endpoint
 
 // Error handling middleware
 app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

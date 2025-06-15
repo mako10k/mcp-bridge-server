@@ -190,12 +190,12 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
       const finalAliasName = aliasName || toolName;
       const namespacedName = `${serverId}:${toolName}`;
       
-      // 既に同じ名前のツールエイリアスがないか確認
+      // Check if a tool alias with the same name already exists
       if (this.toolAliases.has(finalAliasName)) {
         throw new Error(`A tool alias with name ${finalAliasName} already exists`);
       }
 
-      // ツールエイリアス情報を登録
+      // Register tool alias information
       this.toolAliases.set(finalAliasName, {
         namespacedName,
         serverId,
@@ -213,13 +213,13 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * 標準ツールの定義を初期化
+   * Initialize standard tool definitions
    */
   private initializeStandardTools(): void {
     this.standardTools = [
       {
         name: 'list_servers',
-        description: 'List all available MCP servers connected to the bridge',
+        description: 'List all MCP servers with detailed status information including connection state, retry status, and error details',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -357,17 +357,54 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
           required: ['serverId', 'resourceUri'],
         },
       },
+      {
+        name: 'retry_server',
+        description: 'Force retry connection to a specific MCP server',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            serverId: {
+              type: 'string',
+              description: 'The ID of the MCP server to retry',
+            },
+          },
+          required: ['serverId'],
+        },
+      },
+      {
+        name: 'retry_all_servers',
+        description: 'Force retry connection to all failed MCP servers',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: [],
+        },
+      },
+      {
+        name: 'get_server_status',
+        description: 'Get detailed status information for a specific MCP server',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            serverId: {
+              type: 'string',
+              description: 'The ID of the MCP server',
+            },
+          },
+          required: ['serverId'],
+        },
+      },
     ];
   }
 
   /**
-   * 標準ツールと登録済みツールを含む全ツールのリストを取得
+   * Get a list of all tools including standard tools and registered tools
    */
   public getTools(): ToolDefinition[] {
-    // 標準ツールをコピー
+    // Copy standard tools
     const allTools = [...this.standardTools];
     
-    // エイリアスされたツールをリストに追加
+    // Add aliased tools to the list
     const aliasedTools = Array.from(this.toolAliases.entries()).map(([aliasName, tool]) => ({
       name: aliasName,
       description: tool.description || `Aliased tool from ${tool.serverId} (original: ${tool.originalName})`,
@@ -379,11 +416,11 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * ツールを呼び出す
+   * Call a tool
    */
   public async callTool(name: string, args: any = {}): Promise<any> {
     try {
-      // エイリアスされたツールであれば、元のサーバーとツール名にリダイレクト
+      // If it's an aliased tool, redirect to the original server and tool name
       const aliasedTool = this.toolAliases.get(name);
       if (aliasedTool) {
         logger.info(`Calling aliased tool: ${name} -> ${aliasedTool.namespacedName}`);
@@ -400,7 +437,7 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
         }
       }
       
-      // 後方互換性のための処理（古い名前でのツール呼び出し）
+      // Handle backward compatibility (calling tools with old names)
       if (name === 'register_direct_tool') {
         logger.warn('Tool name "register_direct_tool" is deprecated, use "create_tool_alias" instead');
         return await this.handleCreateToolAlias(args);
@@ -412,11 +449,11 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
         return await this.handleListAliasedTools();
       }
       
-      // 標準ツールの処理
+      // Handle standard tools
       switch (name) {
         case 'list_servers':
           return {
-            servers: this.mcpManager.getAvailableServers(),
+            servers: this.mcpManager.getDetailedServerInfo(),
           };
 
         case 'list_all_tools':
@@ -470,6 +507,52 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
             resource: await this.mcpManager.readResource(args.serverId as string, args.resourceUri as string),
           };
 
+        case 'retry_server':
+          if (!args.serverId) {
+            throw new Error('serverId is required');
+          }
+          try {
+            await this.mcpManager.forceRetryServer(args.serverId as string);
+            return {
+              success: true,
+              message: `Retry initiated for server ${args.serverId}`
+            };
+          } catch (error) {
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            };
+          }
+
+        case 'retry_all_servers':
+          try {
+            await this.mcpManager.forceRetryAllServers();
+            return {
+              success: true,
+              message: 'Retry initiated for all failed servers'
+            };
+          } catch (error) {
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            };
+          }
+
+        case 'get_server_status':
+          if (!args.serverId) {
+            throw new Error('serverId is required');
+          }
+          const status = this.mcpManager.getServerStatus(args.serverId as string);
+          if (!status) {
+            return {
+              error: `Server ${args.serverId} not found`
+            };
+          }
+          return {
+            serverId: args.serverId,
+            status
+          };
+
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
@@ -480,7 +563,7 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * ツールエイリアス作成処理
+   * Tool alias creation handler
    */
   public async handleCreateToolAlias(args: any): Promise<any> {
     if (!args.serverId || !args.toolName) {
@@ -504,7 +587,7 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * ツールエイリアス削除処理
+   * Tool alias removal handler
    */
   public async handleRemoveToolAlias(args: any): Promise<any> {
     if (!args.toolName) {
@@ -524,7 +607,7 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * エイリアスされたツール一覧取得処理
+   * Aliased tool list retrieval handler
    */
   public async handleListAliasedTools(): Promise<any> {
     const aliasedTools = Array.from(this.toolAliases.entries()).map(([name, info]) => ({
@@ -553,7 +636,7 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
   
   /**
-   * ツールエイリアス登録通知（ログ出力のみ）
+   * Tool alias registration notification (log output only)
    */
   private registerAliasedToolHandler(aliasName: string, toolInfo: AliasedToolInfo): void {
     logger.info(`Registered tool alias handler for: ${aliasName} (${toolInfo.namespacedName})`);

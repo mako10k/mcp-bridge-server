@@ -1,70 +1,125 @@
-# MCP サーバーリトライメカニズム仕様
+# MCP Server Retry Mechanism Specification
 
-## 目的
-MCPサーバー接続の安定性を高め、一時的な障害からの自動復旧機能を提供する。
+## Purpose
+Enhance MCP server connection stability and provide automatic recovery functionality from temporary failures.
 
-## 機能要件
+## Functional Requirements
 
-### 1. 自動リトライ機能
-- サーバー接続失敗時に自動的にリトライを行う
-- 設定可能なリトライ間隔と最大リトライ回数
-- リトライ中のステータス追跡と管理
+### 1. Automatic Retry Function
+- Automatic retry on server connection failure
+- Configurable retry interval and maximum retry count
+- Status tracking and management during retry
 
-### 2. 条件付きリトライ
-- ツール呼び出しが試行された場合は、最大リトライ回数に達していても再度リトライを行う
-- 任意のタイミングでユーザーがリトライを強制できる機能
+### 2. Conditional Retry
+- When tool calls are attempted, retry again even if maximum retry count has been reached
+- User can force retry at any time
 
-### 3. サーバーステータス管理
-- 各サーバーの現在のステータス追跡（接続済み、切断、リトライ中、障害）
-- サーバー一覧エンドポイントでステータス情報を返す
-- リトライ回数、最終接続試行時間などの詳細情報の提供
+### 3. Server Status Management
+- Track current status of each server (connected, disconnected, retrying, failed)
+- Return status information in server list endpoint
+- Provide detailed information such as retry count and last connection attempt time
 
-### 4. リトライ強制機能
-- リトライ停止中のサーバーに対して強制的にリトライを実行するAPIエンドポイント
-- サーバーIDを指定して特定のサーバーだけリトライさせる機能
+### 4. Force Retry Function
+- API endpoint to forcibly retry servers that have stopped retrying
+- Function to retry only specific servers by specifying server ID
 
-## 技術的仕様
+## Technical Specification
 
-### サーバーステータス定義
+### Server Status Definition
 ```typescript
 enum MCPServerStatus {
-  CONNECTED = 'connected',      // 接続済み
-  DISCONNECTED = 'disconnected',// 切断状態
-  CONNECTING = 'connecting',    // 接続試行中
-  RETRYING = 'retrying',        // リトライ中
-  FAILED = 'failed'             // 最大リトライ回数に達し失敗
+  CONNECTED = 'connected',      // Connected
+  DISCONNECTED = 'disconnected',// Disconnected state
+  CONNECTING = 'connecting',    // Connection attempt in progress
+  RETRYING = 'retrying',        // Retrying
+  FAILED = 'failed'             // Failed after reaching maximum retry count
 }
 ```
 
-### サーバーステータス追跡
+### Server Status Tracking
 ```typescript
 interface MCPServerStatusInfo {
-  status: MCPServerStatus;      // 現在のステータス
-  retryCount: number;           // 現在のリトライ回数
-  maxRetries: number;           // 設定された最大リトライ回数
-  lastRetryTime: Date | null;   // 最後にリトライした時間
-  errorMessage: string | null;  // 最新のエラーメッセージ
+  status: MCPServerStatus;      // Current status
+  retryCount: number;           // Current retry count
+  maxRetries: number;           // Configured maximum retry count
+  lastRetryTime: Date | null;   // Last retry time
+  errorMessage: string | null;  // Latest error message
 }
 ```
 
-### APIエンドポイント
-1. **サーバー一覧（拡張）**:
-   - `GET /mcp/servers` - 各サーバーの現在のステータス情報を含めて返す
+### API Endpoints
+1. **Server List (Extended)**:
+   - `GET /mcp/servers` - Returns each server's current status information
 
-2. **リトライ強制**:
-   - `POST /mcp/servers/:serverId/retry` - 指定したサーバーのリトライを強制実行
-   - `POST /mcp/servers/retry-all` - すべての失敗しているサーバーのリトライを強制実行
+2. **Force Retry**:
+   - `POST /mcp/servers/:serverId/retry` - Force retry for specified server
+   - `POST /mcp/servers/retry-all` - Force retry for all failed servers
 
-3. **ツール向けMCPエンドポイント**:
-   - `retry_server` - リトライを強制実行するためのツール
-   - `get_server_status` - サーバーの詳細なステータスを取得するツール
+3. **MCP Tool Endpoints**:
+   - `retry_server` - Tool to force retry execution
+   - `get_server_status` - Tool to get detailed server status
 
-## 実装計画
-1. MCPServerStatus列挙型とMCPServerStatusInfoインターフェースの定義
-2. MCPBridgeManagerにステータス追跡機能を追加
-3. 自動リトライロジックの実装
-4. ツール呼び出し時のリトライロジック実装
-5. 拡張されたサーバー一覧エンドポイントの実装
-6. リトライ強制APIエンドポイントの実装
-7. 対応するツールの実装
-8. テストとデバッグ
+## Implementation Plan
+1. Define MCPServerStatus enum and MCPServerStatusInfo interface
+2. Add status tracking functionality to MCPBridgeManager
+3. Implement automatic retry logic
+4. Implement retry logic for tool calls
+5. Implement extended server list endpoint
+6. Implement force retry API endpoints
+7. Implement corresponding tools
+8. Testing and debugging
+
+## Implementation Status
+
+### HTTP Endpoints
+
+#### Server Management
+1. **GET `/mcp/servers`** - Get server list and detailed status
+   - ✅ Implemented - Returns detailed information including server connection state, retry information, and error messages
+
+2. **POST `/mcp/servers/:serverId/retry`** - Force retry for specific server
+   - ✅ Implemented - Forces retry even for servers that have reached maximum retry count
+
+3. **POST `/mcp/servers/retry-all`** - Force retry for all failed servers
+   - ✅ Implemented - Execute retry for all servers in failed state
+
+4. **GET `/mcp/servers/:serverId/status`** - Detailed status for specific server
+   - ⚠️ Temporarily disabled due to TypeScript type issues - Can be substituted with `/mcp/servers` endpoint
+
+### MCP Tools
+1. **retry_server** - Force retry tool for specific server
+   - ✅ Implemented - Available directly from MCP clients
+
+2. **retry_all_servers** - Force retry tool for all failed servers
+   - ✅ Implemented - Batch retry for all servers
+
+3. **get_server_status** - Server status retrieval tool
+   - ✅ Implemented - Get detailed status information for specific server
+
+4. **list_servers** - Server list tool (extended)
+   - ✅ Implemented - Extended to include detailed status information in addition to conventional functionality
+
+## Test Results
+
+### Automatic Retry Function
+- ✅ Automatic retry on server connection failure
+- ✅ Retry interval adjustment with exponential backoff (1s → 2s → 4s → ...)
+- ✅ Setting and adherence to maximum retry count
+- ✅ Accurate tracking of retry status
+- ✅ Recording of error messages
+
+### Force Retry Function
+- ✅ Specific server retry from HTTP endpoints
+- ✅ All server retry from HTTP endpoints
+- ✅ Retry execution from MCP tools
+- ✅ Retry count reset
+
+### Retry on Tool Calls
+- ✅ Server connection verification before tool calls
+- ✅ Automatic retry trigger on connection failure
+- ✅ Force retry regardless of maximum retry count
+
+### Status Reporting
+- ✅ Status information display in server list
+- ✅ Tracking of retry count, last retry time, next retry time
+- ✅ Storage and display of error messages
