@@ -1,7 +1,7 @@
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
 import { logger } from './utils/logger.js';
 
-// BridgeToolRegistry インターフェイス
+// BridgeToolRegistry Interface
 export interface IBridgeToolRegistry {
   getTools(): ToolDefinition[];
   callTool(name: string, args?: any): Promise<any>;
@@ -14,43 +14,43 @@ export interface IBridgeToolRegistry {
   setRegistrationPatterns(patterns: RegistrationPattern[]): void;
 }
 
-// 直接登録されたツールの情報を格納する型
+// Type for storing information about directly registered tools
 interface RegisteredToolInfo {
-  namespacedName: string;   // 元のツール名（サーバーID:ツール名）
-  serverId: string;         // ソースサーバーID
-  originalName: string;     // 元のツール名（サーバーID抜き）
-  description?: string;     // ツールの説明
-  inputSchema: any;         // 入力スキーマ
+  namespacedName: string;   // Original tool name (serverId:toolName)
+  serverId: string;         // Source server ID
+  originalName: string;     // Original tool name (without serverId)
+  description?: string;     // Tool description
+  inputSchema: any;         // Input schema
 }
 
-// 登録パターン定義型
+// Registration pattern definition type
 export interface RegistrationPattern {
-  serverPattern: string;    // サーバーIDのパターン（ワイルドカード対応）
-  toolPattern: string;      // ツール名のパターン（ワイルドカード対応）
-  exclude: boolean;         // 除外パターンか（true=除外、false=含める）
+  serverPattern: string;    // Server ID pattern (supports wildcards)
+  toolPattern: string;      // Tool name pattern (supports wildcards)
+  exclude: boolean;         // Whether this is an exclusion pattern (true=exclude, false=include)
 }
 
 /**
- * ワイルドカードパターンがテキストにマッチするか確認する
- * サポートするワイルドカード: * (任意の文字列), ? (任意の1文字)
- * @param pattern ワイルドカードパターン
- * @param text 比較するテキスト
- * @returns マッチする場合はtrue
+ * Check if a wildcard pattern matches the given text
+ * Supported wildcards: * (any string), ? (any single character)
+ * @param pattern Wildcard pattern
+ * @param text Text to compare
+ * @returns true if matches
  */
 export function matchWildcard(pattern: string, text: string): boolean {
-  // パターンを正規表現用にエスケープ
+  // Escape pattern for regex
   let regexPattern = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
   
-  // ワイルドカードを正規表現に変換
+  // Convert wildcards to regex
   regexPattern = regexPattern.replace(/\*/g, '.*')
                             .replace(/\?/g, '.');
   
-  // 完全一致のための正規表現
+  // Regex for exact match
   const regex = new RegExp(`^${regexPattern}$`);
   return regex.test(text);
 }
 
-// ツール情報を表す型
+// Type representing tool information
 export interface ToolDefinition {
   name: string;
   description: string;
@@ -58,14 +58,14 @@ export interface ToolDefinition {
 }
 
 /**
- * ブリッジ内部のツール管理クラス
- * 外部MCPサーバーではなく、内部コンポーネントとして機能する
+ * Bridge internal tool management class
+ * Functions as an internal component rather than an external MCP server
  */
 export class BridgeToolRegistry implements IBridgeToolRegistry {
   private mcpManager: MCPBridgeManager;
-  private registeredTools: Map<string, RegisteredToolInfo> = new Map(); // 直接登録されたツールを管理するマップ
+  private registeredTools: Map<string, RegisteredToolInfo> = new Map(); // Map to manage directly registered tools
   private standardTools: ToolDefinition[] = [];
-  private registrationPatterns: RegistrationPattern[] = []; // 登録パターン
+  private registrationPatterns: RegistrationPattern[] = []; // Registration patterns
 
   constructor(mcpManager: MCPBridgeManager) {
     this.mcpManager = mcpManager;
@@ -74,8 +74,8 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * 登録パターンを設定する
-   * @param patterns 登録パターンの配列
+   * Set registration patterns
+   * @param patterns Array of registration patterns
    */
   setRegistrationPatterns(patterns: RegistrationPattern[]): void {
     this.registrationPatterns = patterns;
@@ -83,7 +83,7 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * 設定された登録パターンを適用し、マッチするツールを自動登録する
+   * Apply configured registration patterns and automatically register matching tools
    */
   async applyRegistrationPatterns(): Promise<void> {
     if (this.registrationPatterns.length === 0) {
@@ -94,23 +94,23 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
     try {
       logger.info('Applying tool registration patterns...');
       const allServers = this.mcpManager.getAvailableServers();
-      const processedTools: Set<string> = new Set(); // 処理済みのツールを記録するセット
+      const processedTools: Set<string> = new Set(); // Set to track processed tools
       let registerCount = 0;
 
-      // すべてのサーバーを処理
+      // Process all servers
       for (const serverId of allServers) {
         try {
           const serverTools = await this.mcpManager.getServerTools(serverId);
           
-          // サーバーの各ツールにパターンマッチングを適用
+          // Apply pattern matching to each tool of the server
           for (const tool of serverTools) {
             const namespacedName = `${serverId}:${tool.name}`;
             
-            // 既に処理済みのツールはスキップ
+            // Skip already processed tools
             if (processedTools.has(namespacedName)) continue;
             processedTools.add(namespacedName);
             
-            // ツールがパターンにマッチするか確認
+            // Check if the tool matches any pattern
             if (this.shouldRegisterTool(serverId, tool.name)) {
               try {
                 await this.registerDirectTool(serverId, tool.name);
@@ -133,29 +133,29 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * ツールを登録すべきかパターンに基づいて判断する
-   * @param serverId サーバーID
-   * @param toolName ツール名
-   * @returns 登録すべき場合はtrue
+   * Determine if a tool should be registered based on patterns
+   * @param serverId Server ID
+   * @param toolName Tool name
+   * @returns true if the tool should be registered
    */
   private shouldRegisterTool(serverId: string, toolName: string): boolean {
-    // パターンがない場合はデフォルトで登録しない
+    // Don't register by default if there are no patterns
     if (this.registrationPatterns.length === 0) return false;
     
     let shouldRegister = false;
     
-    // すべてのパターンを順に評価
+    // Evaluate all patterns in order
     for (const pattern of this.registrationPatterns) {
       const serverMatched = matchWildcard(pattern.serverPattern, serverId);
       const toolMatched = matchWildcard(pattern.toolPattern, toolName);
       
-      // パターンにマッチした場合
+      // If the pattern matches
       if (serverMatched && toolMatched) {
         if (pattern.exclude) {
-          // 除外パターンにマッチした場合は登録しない
+          // If matched an exclusion pattern, don't register
           return false;
         } else {
-          // 含めるパターンにマッチした場合は登録候補
+          // If matched an inclusion pattern, mark as registration candidate
           shouldRegister = true;
         }
       }
@@ -165,28 +165,28 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * 特定のサーバーのツールを直接登録する
-   * @param serverId サーバーID
-   * @param toolName 登録するツール名
-   * @param newName 新しいツール名（オプション）
-   * @returns 登録結果
+   * Directly register a tool from a specific server
+   * @param serverId Server ID
+   * @param toolName Tool name to register
+   * @param newName New tool name (optional)
+   * @returns Registration result
    */
   private async registerDirectTool(serverId: string, toolName: string, newName?: string): Promise<any> {
     try {
-      // サーバーが存在するか確認
+      // Check if server exists
       const availableServers = this.mcpManager.getAvailableServers();
       if (!availableServers.includes(serverId)) {
         throw new Error(`Server ${serverId} not found or not connected`);
       }
       
-      // ツールの情報を取得
+      // Get tool information
       const serverTools = await this.mcpManager.getServerTools(serverId);
       const toolInfo = serverTools.find(t => t.name === toolName);
       if (!toolInfo) {
         throw new Error(`Tool ${toolName} not found on server ${serverId}`);
       }
       
-      // 実際に使用するツール名を決定
+      // Determine the actual tool name to use
       const registrationName = newName || toolName;
       const namespacedName = `${serverId}:${toolName}`;
       

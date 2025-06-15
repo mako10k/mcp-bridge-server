@@ -10,6 +10,7 @@ import { logger } from '../utils/logger.js';
 // Zod schema for MCP server configuration
 export const MCPServerConfigSchema = z.object({
   name: z.string(),
+  displayName: z.string().optional(),
   transport: z.enum(['stdio', 'sse', 'http']).default('stdio'),
   // STDIO transport options
   command: z.string().optional(),
@@ -52,9 +53,9 @@ export const MCPConfigSchema = z.object({
   ).optional(),
   registrationPatterns: z.array(
     z.object({
-      serverPattern: z.string().describe('サーバーID名のパターン（ワイルドカード *,? 使用可能）'),
-      toolPattern: z.string().describe('ツール名のパターン（ワイルドカード *,? 使用可能）'),
-      exclude: z.boolean().default(false).describe('除外パターンとして使用するかどうか'),
+      serverPattern: z.string().describe('Server ID pattern (wildcards *,? supported)'),
+      toolPattern: z.string().describe('Tool name pattern (wildcards *,? supported)'),
+      exclude: z.boolean().default(false).describe('Whether to use as an exclusion pattern'),
     })
   ).optional(),
   global: z.object({
@@ -81,7 +82,7 @@ export function loadMCPConfig(configPath: string): MCPConfig {
     const configData = fs.readFileSync(configPath, 'utf-8');
     const parsedConfig = JSON.parse(configData);
     
-    // 設定内の環境変数を展開
+    // Expand environment variables in configuration
     const expandedConfig = expandEnvVarsInObject(parsedConfig);
     
     // Validate configuration using Zod
@@ -191,21 +192,21 @@ export function getEnabledServers(config: MCPConfig): MCPServerConfig[] {
 }
 
 /**
- * 環境変数を展開する関数
- * ${VAR} 形式の文字列を環境変数の値に置き換えます
- * @param value 展開する文字列
- * @returns 環境変数展開後の文字列
+ * Function to expand environment variables
+ * Replaces strings in the format ${VAR} with the value of the environment variable
+ * @param value String to expand
+ * @returns String with environment variables expanded
  */
 export function expandEnvVars(value: string): string {
   return value.replace(/\${([^}]+)}/g, (match, varName) => {
-    return process.env[varName] || match; // 環境変数が存在しない場合は元の文字列をそのまま返す
+    return process.env[varName] || match; // Return the original string if the environment variable doesn't exist
   });
 }
 
 /**
- * オブジェクト内の環境変数を再帰的に展開
- * @param obj 展開するオブジェクト
- * @returns 環境変数展開後のオブジェクト
+ * Recursively expand environment variables in an object
+ * @param obj Object to expand
+ * @returns Object with environment variables expanded
  */
 export function expandEnvVarsInObject(obj: Record<string, any>): Record<string, any> {
   const result: Record<string, any> = {};

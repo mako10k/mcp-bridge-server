@@ -6,8 +6,8 @@ import { IBridgeToolRegistry } from './bridge-tool-registry.js';
 import { logger } from './utils/logger.js';
 
 /**
- * MCPメタサーバー
- * ブリッジのMCPサーバーとして機能し、ブリッジツールレジストリのツールをMCPを通じて提供する
+ * MCP Meta Server
+ * Functions as an MCP server for the bridge, providing tools from the bridge tool registry via MCP
  */
 export class MCPMetaServer {
   private server: Server;
@@ -36,7 +36,7 @@ export class MCPMetaServer {
   private setupHandlers(): void {
     // List all available tools (from the tool registry)
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      // ツールレジストリからすべてのツールを取得
+      // Get all tools from the tool registry
       const tools = this.toolRegistry.getTools();
       
       return {
@@ -49,7 +49,7 @@ export class MCPMetaServer {
       try {
         const { name, arguments: args = {} } = request.params;
         
-        // ツールレジストリを通じてツールを呼び出す
+        // Call the tool through the tool registry
         const result = await this.toolRegistry.callTool(name, args);
         
         return {

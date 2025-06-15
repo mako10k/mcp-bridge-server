@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.1] - 2025-06-16
+## [Unreleased]
+
+### Added
+- (Planned features for v1.4.0 will be listed here)
+
+### Changed
+- Internationalized codebase by converting all comments to English
+
+## [1.3.0] - 2025-06-15
+
+### Added
+- Implemented tool registration patterns feature (`registrationPatterns` configuration)
+- Added wildcard pattern matching (supporting `*` and `?` symbols)
+- Enhanced automatic tool registration logging
+- Added sample configuration files for registration patterns
+
+### Fixed
+- Fixed MCP servers to correctly publish tools from the tool registry
+- Resolved tool sharing issues between HTTP/STDIO transports
+- Improved error handling during tool invocation
+
+### Changed
+- Integrated `MCPHttpServer` tool handling with the tool registry
+- Updated `MCPMetaServer` to optimize tool registry usage
+- Updated documentation to explain the usage of registration patterns
+
+## [1.2.1] - 2025-06-14
 
 ### Added
 - Add environment variable expansion in configuration files using ${VAR} syntax
