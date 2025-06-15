@@ -14,6 +14,7 @@ A TypeScript-based HTTP gateway for multiple STDIO-based MCP (Model Context Prot
 - **Multi-Server Support**: Connect to multiple MCP servers simultaneously
 - **Dynamic Configuration**: JSON-based server configuration with environment variable expansion
 - **Tool Name Conflict Resolution**: Automatic detection and namespace-based resolution
+- **Tool Registration Patterns**: Automatically register tools matching wildcard patterns
 - **Internal Tool Registry**: Manages tools directly within the bridge for efficient access
 - **Direct Tool Registration**: Register tools from any server for direct access
 - **Robust Error Handling**: Comprehensive error handling for all transport types
@@ -552,176 +553,64 @@ docker-compose logs -f
 
 See [docker/README.md](docker/README.md) for comprehensive Docker documentation.
 
-## Docker Deployment
+## Tool Registration Patterns
 
-### Quick Docker Setup
+MCP Bridge Server supports automatic tool registration using wildcard patterns. This feature allows you to:
 
-```bash
-# Build and run using docker-compose
-docker-compose up -d
+1. Automatically register tools from specific servers
+2. Register all tools that match a naming pattern
+3. Exclude certain tools from registration
 
-# Or using our build script
-./docker/build.sh --action run
+### Configuration Example
 
-# Check service health
-curl http://localhost:3000/health
-
-# Stop the service
-./docker/build.sh --action stop
-```
-
-### Docker Commands
-
-```bash
-# Production deployment
-docker-compose up -d
-
-# Development mode with debugging
-docker-compose -f docker-compose.dev.yml up -d
-
-# Build only
-docker build -t mcp-bridge .
-
-# Run with custom configuration
-docker run -d \
-  -p 3000:3000 \
-  -v $(pwd)/my-mcp-config.json:/app/mcp-config.json:ro \
-  mcp-bridge:latest
-```
-
-### Docker Environment Variables
-
-- `NODE_ENV`: Set to `production` or `development`
-- `LOG_LEVEL`: Logging level (`debug`, `info`, `warn`, `error`)
-- `CONFIG_PATH`: Path to configuration file (default: `/app/mcp-config.json`)
-- `PORT`: Server port (default: `3000`)
-
-### Production Deployment
-
-For production deployments with remote MCP servers:
+Add `registrationPatterns` to your `mcp-config.json`:
 
 ```json
 {
-  "servers": [
+  "servers": [...],
+  "registrationPatterns": [
     {
-      "name": "local-filesystem",
-      "transport": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"]
+      "serverPattern": "filesystem",     // サーバー名のパターン
+      "toolPattern": "*",               // すべてのツールを登録
+      "exclude": false                  // 登録する（falseは登録、trueは除外）
     },
     {
-      "name": "ai-service",
-      "transport": "sse",
-      "url": "https://ai-mcp-service.example.com/sse",
-      "headers": {
-        "Authorization": "Bearer ${AI_SERVICE_TOKEN}",
-        "X-Environment": "production"
-      }
+      "serverPattern": "*",             // すべてのサーバーから
+      "toolPattern": "read_*",          // read_で始まるツールを登録
+      "exclude": false
     },
     {
-      "name": "database-service", 
-      "transport": "http",
-      "url": "https://db-mcp.internal.company.com/api",
-      "headers": {
-        "X-API-Key": "${DB_API_KEY}",
-        "X-Service": "mcp-bridge"
-      }
+      "serverPattern": "*",             // すべてのサーバーから
+      "toolPattern": "internal_*",      // internal_で始まるツールは
+      "exclude": true                   // 登録しない（除外する）
+    }
+  ],
+  "directTools": [
+    {
+      "serverId": "brave-search",       // 個別に特定のツールを登録
+      "toolName": "search",
+      "newName": "brave_search"         // 別名で登録
     }
   ]
 }
 ```
 
-## Transport Support
+### Pattern Matching Rules
 
-The MCP Bridge Server supports multiple transport protocols for connecting to MCP servers:
+- Wildcard patterns support:
+  - `*`: Matches any sequence of characters
+  - `?`: Matches any single character
+- Patterns are evaluated in order, with later exclusion patterns taking precedence
+- If no pattern matches a tool, it will not be registered
 
-### 1. STDIO Transport (Default)
-For local process-based MCP servers:
+### Usage Example
 
-```json
-{
-  "name": "filesystem",
-  "transport": "stdio",
-  "command": "npx",
-  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
-  "env": {
-    "CUSTOM_VAR": "value"
-  },
-  "cwd": "/custom/working/directory"
-}
-```
+```bash
+# Start with registration patterns config
+npm start -- ./examples/mcp-config-with-patterns.json
 
-### 2. SSE Transport (Server-Sent Events)
-For HTTP-based MCP servers using Server-Sent Events:
-
-```json
-{
-  "name": "remote-sse-server",
-  "transport": "sse",
-  "url": "http://localhost:3001/sse",
-  "headers": {
-    "Authorization": "Bearer your-token",
-    "Custom-Header": "value"
-  }
-}
-```
-
-### 3. HTTP Transport (StreamableHTTP)
-For HTTP-based MCP servers using StreamableHTTP:
-
-```json
-{
-  "name": "remote-http-server",
-  "transport": "http", 
-  "url": "http://localhost:3002/mcp",
-  "headers": {
-    "Authorization": "Bearer your-token",
-    "Content-Type": "application/json"
-  }
-}
-```
-
-### Transport Configuration Options
-
-| Option | STDIO | SSE | HTTP | Description |
-|--------|-------|-----|------|-------------|
-| `command` | ✅ Required | ❌ | ❌ | Command to execute |
-| `args` | ✅ Optional | ❌ | ❌ | Command arguments |
-| `env` | ✅ Optional | ❌ | ❌ | Environment variables |
-| `cwd` | ✅ Optional | ❌ | ❌ | Working directory |
-| `url` | ❌ | ✅ Required | ✅ Required | Server URL |
-| `headers` | ❌ | ✅ Optional | ✅ Optional | HTTP headers |
-
-### Mixed Transport Example
-
-```json
-{
-  "servers": [
-    {
-      "name": "local-filesystem",
-      "transport": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-    },
-    {
-      "name": "remote-api-server",
-      "transport": "sse",
-      "url": "https://api.example.com/mcp/sse",
-      "headers": {
-        "Authorization": "Bearer sk-...",
-        "X-Client-Version": "1.0.0"
-      }
-    },
-    {
-      "name": "cloud-mcp-service",
-      "transport": "http",
-      "url": "https://mcp-service.cloud.com/api",
-      "headers": {
-        "API-Key": "your-api-key"
-      }
-    }
-  ]
-}
+# Check which tools were automatically registered
+curl http://localhost:3000/mcp/tools/registered
 ```
 
 ## Environment Variable Expansion

@@ -43,6 +43,20 @@ export type MCPServerConfig = z.infer<typeof MCPServerConfigSchema>;
 // Schema for the complete MCP configuration file
 export const MCPConfigSchema = z.object({
   servers: z.array(MCPServerConfigSchema),
+  directTools: z.array(
+    z.object({
+      serverId: z.string(),
+      toolName: z.string(),
+      newName: z.string().optional(),
+    })
+  ).optional(),
+  registrationPatterns: z.array(
+    z.object({
+      serverPattern: z.string().describe('サーバーID名のパターン（ワイルドカード *,? 使用可能）'),
+      toolPattern: z.string().describe('ツール名のパターン（ワイルドカード *,? 使用可能）'),
+      exclude: z.boolean().default(false).describe('除外パターンとして使用するかどうか'),
+    })
+  ).optional(),
   global: z.object({
     logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
     maxConcurrentConnections: z.number().default(10),

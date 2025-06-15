@@ -39,7 +39,7 @@ RUN npm ci --only=production && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 
 # Copy configuration files
-COPY --chown=mcpbridge:nodejs mcp-config.json ./
+COPY --chown=mcpbridge:nodejs docker/mcp-config.docker.json ./mcp-config.json
 
 # Create logs directory
 RUN mkdir -p logs && chown mcpbridge:nodejs logs
