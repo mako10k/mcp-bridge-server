@@ -32,3 +32,7 @@ You can find more info and examples at https://modelcontextprotocol.io/llms-full
 - Implement middleware for request/response transformation
 - Use factory patterns for creating MCP connections
 - Apply proper TypeScript typing throughout
+
+## Development tools
+
+- Prefer using official MCP CLI tools and utilities for development and debugging tasks, instead of relying on VS Code's built-in MCP features.

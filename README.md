@@ -135,10 +135,10 @@ Content-Type: application/json
   }
 }
 
-# 注意: 以下のエンドポイントは v1.2.1 から削除されました
-# 代わりに上記の '/mcp/servers/:serverId/tools/call' エンドポイントを使用してください
+# Note: The following endpoint has been removed since v1.2.1
+# Use the '/mcp/servers/:serverId/tools/call' endpoint above instead
 
-# または直接登録されたツールを使用:
+# Or use directly registered tools:
 POST /mcp/meta/tools/call
 Content-Type: application/json
 
@@ -270,7 +270,7 @@ When multiple MCP servers provide tools with the same name, the MCP Bridge Serve
 All tools are automatically assigned namespaced names in the format `serverId:toolName`:
 
 ```bash
-# 注: v1.2.1からは明示的なサーバーIDとツール名の指定が必要です
+# Note: Since v1.2.1, explicit serverId and toolName are required
 curl -X POST http://localhost:3000/mcp/servers/filesystem/tools/call \
   -H "Content-Type: application/json" \
   -d '{"name": "read_file", "arguments": {"path": "/tmp/test.txt"}}'
@@ -570,26 +570,26 @@ Add `registrationPatterns` to your `mcp-config.json`:
   "servers": [...],
   "registrationPatterns": [
     {
-      "serverPattern": "filesystem",     // サーバー名のパターン
-      "toolPattern": "*",               // すべてのツールを登録
-      "exclude": false                  // 登録する（falseは登録、trueは除外）
+      "serverPattern": "filesystem",     // Server name pattern
+      "toolPattern": "*",               // Register all tools
+      "exclude": false                  // Register (false=register, true=exclude)
     },
     {
-      "serverPattern": "*",             // すべてのサーバーから
-      "toolPattern": "read_*",          // read_で始まるツールを登録
+      "serverPattern": "*",             // From all servers
+      "toolPattern": "read_*",          // Register tools starting with read_
       "exclude": false
     },
     {
-      "serverPattern": "*",             // すべてのサーバーから
-      "toolPattern": "internal_*",      // internal_で始まるツールは
-      "exclude": true                   // 登録しない（除外する）
+      "serverPattern": "*",             // From all servers
+      "toolPattern": "internal_*",      // Tools starting with internal_
+      "exclude": true                   // Don't register (exclude)
     }
   ],
   "directTools": [
     {
-      "serverId": "brave-search",       // 個別に特定のツールを登録
+      "serverId": "brave-search",       // Individually register specific tools
       "toolName": "search",
-      "newName": "brave_search"         // 別名で登録
+      "newName": "brave_search"         // Register with an alias
     }
   ]
 }

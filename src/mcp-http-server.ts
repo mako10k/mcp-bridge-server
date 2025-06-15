@@ -19,7 +19,7 @@ export class MCPHttpServer {
   // Keep track of active transports by session ID
   private transports: Record<string, StreamableHTTPServerTransport> = {};
   private lastAccessTime: Record<string, number> = {};
-  private readonly IDLE_TIMEOUT = 1800000; // 30分のアイドルタイムアウト
+  private readonly IDLE_TIMEOUT = 1800000; // 30 minutes idle timeout
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor(mcpManager: MCPBridgeManager) {
@@ -53,7 +53,7 @@ export class MCPHttpServer {
   private startCleanupInterval(): void {
     this.cleanupInterval = setInterval(() => {
       this.cleanupIdleTransports();
-    }, 300000); // 5分ごとにチェック
+    }, 300000); // Check every 5 minutes
   }
 
   /**
@@ -107,16 +107,16 @@ export class MCPHttpServer {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       logger.debug('Handling ListTools request');
       
-      // ツールレジストリからツールリストを取得
+      // Get tool list from the tool registry
       const toolRegistry = this.mcpManager.getToolRegistry();
       if (toolRegistry) {
-        // ツールレジストリが利用可能な場合、そこから全ツールを取得
+        // If tool registry is available, get all tools from it
         const tools = toolRegistry.getTools();
         logger.debug(`Returning ${tools.length} tools from registry`);
         return { tools };
       }
       
-      // ツールレジストリが設定されていない場合は基本的なツールのみ返す
+      // If tool registry is not configured, return only basic tools
       logger.warn('Tool registry not available, returning basic tools only');
       return {
           tools: [
@@ -235,7 +235,7 @@ export class MCPHttpServer {
         const { name, arguments: args = {} } = request.params;
         logger.debug(`Handling CallTool request for tool: ${name}`);
         
-        // ツールレジストリから呼び出し
+        // Call from tool registry
         const toolRegistry = this.mcpManager.getToolRegistry();
         if (toolRegistry) {
           try {
@@ -250,7 +250,7 @@ export class MCPHttpServer {
               ],
             };
           } catch (error) {
-            // ツールレジストリでエラーが発生した場合、標準処理にフォールバック
+            // If error occurs in tool registry, fall back to standard processing
             if (error instanceof Error && error.message.includes('Unknown tool')) {
               logger.debug(`Tool ${name} not found in registry, falling back to standard tools`);
             } else {
@@ -270,7 +270,7 @@ export class MCPHttpServer {
           }
         }
         
-        // 標準ツール処理（フォールバック）
+        // Standard tool processing (fallback)
         switch (name) {
           case 'list_servers':
             return {
@@ -331,7 +331,7 @@ export class MCPHttpServer {
               const namespacedName = `${serverId}:${originalToolName}`;
               const toolName = args.newName as string || originalToolName;
               
-              // ツールが存在するか確認
+              // Check if the tool exists
               const allTools = await this.mcpManager.getAllTools();
               const sourceServer = allTools.find(tool => 
                 tool.serverId === serverId && tool.name === originalToolName
@@ -341,13 +341,13 @@ export class MCPHttpServer {
                 throw new Error(`Tool ${originalToolName} not found on server ${serverId}`);
               }
               
-              // 同じ名前のツールが既に登録されていないか確認
-              // Note: MCPHttpServerの実装では、実際の登録はプロキシとなり
-              // ツールの実際の実装はMCPMetaServerで行われます
+              // Check if a tool with the same name is already registered
+              // Note: In the MCPHttpServer implementation, the actual registration is proxied
+              // The actual implementation of the tool is done by MCPMetaServer
               
               logger.info(`Registering direct tool via HTTP: ${toolName} (${serverId}:${originalToolName})`);
               
-              // 直接ツールレジストリを参照して登録（MCPプロトコル不要）
+              // Reference the tool registry directly for registration (no MCP protocol needed)
               const bridgeToolRegistry = this.mcpManager.getToolRegistry();
               if (!bridgeToolRegistry) {
                 throw new Error('Bridge Tool Registry is not available');
@@ -388,7 +388,7 @@ export class MCPHttpServer {
               const toolName = args.toolName as string;
               logger.info(`Unregistering direct tool via HTTP: ${toolName}`);
               
-              // 直接ツールレジストリを参照して登録解除
+              // Reference the tool registry directly for unregistration
               const bridgeToolRegistry = this.mcpManager.getToolRegistry();
               if (!bridgeToolRegistry) {
                 throw new Error('Bridge Tool Registry is not available');
@@ -422,7 +422,7 @@ export class MCPHttpServer {
             try {
               logger.info(`Listing registered tools via HTTP`);
               
-              // 直接ツールレジストリを参照して一覧取得
+              // Reference the tool registry directly to get the list
               const bridgeToolRegistry = this.mcpManager.getToolRegistry();
               if (!bridgeToolRegistry) {
                 throw new Error('Bridge Tool Registry is not available');
