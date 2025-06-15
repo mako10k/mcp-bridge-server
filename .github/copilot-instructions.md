@@ -36,5 +36,5 @@ You can find more info and examples at https://modelcontextprotocol.io/llms-full
 
 ## Development tools
 
-- Prefer using official MCP CLI tools and utilities for development and debugging tasks, instead of relying on VS Code's built-in features.
+- Prefer using official MCP CLI tools and utilities for development and debugging tasks, instead of relying on VS Code's built-in MCP features.
 - Use shell MCP tools rather than the VS Code integrated terminal for running MCP commands.
