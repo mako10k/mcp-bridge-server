@@ -8,10 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- (Planned features for v1.4.0 will be listed here)
+- New configuration hot reload system with merged config from multiple sources
 
 ### Changed
 - Internationalized codebase by converting all comments to English
+- Renamed "Direct Registration" feature to "Tool Aliasing" for better clarity (`directTools` → `toolAliases`)
+- Renamed "Registration Patterns" feature to "Auto Tool Discovery" for better clarity (`registrationPatterns` → `toolDiscoveryRules`)
+- Improved backward compatibility with legacy configuration field names
 
 ## [1.3.0] - 2025-06-15
 

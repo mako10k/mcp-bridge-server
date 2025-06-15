@@ -31,7 +31,7 @@
       "timeout": 10000
     }
   ],
-  "registrationPatterns": [
+  "toolDiscoveryRules": [
     {
       "serverPattern": "*",
       "toolPattern": "*",

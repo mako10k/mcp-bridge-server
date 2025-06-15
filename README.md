@@ -14,9 +14,9 @@ A TypeScript-based HTTP gateway for multiple STDIO-based MCP (Model Context Prot
 - **Multi-Server Support**: Connect to multiple MCP servers simultaneously
 - **Dynamic Configuration**: JSON-based server configuration with environment variable expansion
 - **Tool Name Conflict Resolution**: Automatic detection and namespace-based resolution
-- **Tool Registration Patterns**: Automatically register tools matching wildcard patterns
+- **Auto Tool Discovery**: Automatically discover and register tools matching wildcard patterns
 - **Internal Tool Registry**: Manages tools directly within the bridge for efficient access
-- **Direct Tool Registration**: Register tools from any server for direct access
+- **Tool Aliasing**: Create aliases for tools from any server for direct access
 - **Robust Error Handling**: Comprehensive error handling for all transport types
 - **Comprehensive Logging**: Detailed logging for debugging MCP connections
 - **Type Safety**: Full TypeScript implementation with strict type checking

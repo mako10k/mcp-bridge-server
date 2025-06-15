@@ -5,17 +5,17 @@ import { logger } from './utils/logger.js';
 export interface IBridgeToolRegistry {
   getTools(): ToolDefinition[];
   callTool(name: string, args?: any): Promise<any>;
-  handleRegisterDirectTool(args: any): Promise<any>;
-  handleUnregisterDirectTool(args: any): Promise<any>;
-  handleListRegisteredTools(): Promise<any>;
+  handleCreateToolAlias(args: any): Promise<any>;
+  handleRemoveToolAlias(args: any): Promise<any>;
+  handleListAliasedTools(): Promise<any>;
   startStdioServer(): Promise<void>;
   shutdown(): Promise<void>;
-  applyRegistrationPatterns(): Promise<void>;
-  setRegistrationPatterns(patterns: RegistrationPattern[]): void;
+  applyDiscoveryRules(): Promise<void>;
+  setDiscoveryRules(patterns: ToolDiscoveryRule[]): void;
 }
 
-// Type for storing information about directly registered tools
-interface RegisteredToolInfo {
+// Type for storing information about tool aliases
+interface AliasedToolInfo {
   namespacedName: string;   // Original tool name (serverId:toolName)
   serverId: string;         // Source server ID
   originalName: string;     // Original tool name (without serverId)
@@ -23,8 +23,8 @@ interface RegisteredToolInfo {
   inputSchema: any;         // Input schema
 }
 
-// Registration pattern definition type
-export interface RegistrationPattern {
+// Tool discovery rule definition type
+export interface ToolDiscoveryRule {
   serverPattern: string;    // Server ID pattern (supports wildcards)
   toolPattern: string;      // Tool name pattern (supports wildcards)
   exclude: boolean;         // Whether this is an exclusion pattern (true=exclude, false=include)
@@ -63,9 +63,9 @@ export interface ToolDefinition {
  */
 export class BridgeToolRegistry implements IBridgeToolRegistry {
   private mcpManager: MCPBridgeManager;
-  private registeredTools: Map<string, RegisteredToolInfo> = new Map(); // Map to manage directly registered tools
+  private toolAliases: Map<string, AliasedToolInfo> = new Map(); // Map to manage tool aliases
   private standardTools: ToolDefinition[] = [];
-  private registrationPatterns: RegistrationPattern[] = []; // Registration patterns
+  private toolDiscoveryRules: ToolDiscoveryRule[] = []; // Tool discovery rules
 
   constructor(mcpManager: MCPBridgeManager) {
     this.mcpManager = mcpManager;
@@ -74,20 +74,20 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * Set registration patterns
-   * @param patterns Array of registration patterns
+   * Set tool discovery rules
+   * @param patterns Array of tool discovery rules
    */
-  setRegistrationPatterns(patterns: RegistrationPattern[]): void {
-    this.registrationPatterns = patterns;
-    logger.info(`Set ${patterns.length} tool registration patterns`);
+  setDiscoveryRules(patterns: ToolDiscoveryRule[]): void {
+    this.toolDiscoveryRules = patterns;
+    logger.info(`Set ${patterns.length} tool discovery rules`);
   }
 
   /**
-   * Apply configured registration patterns and automatically register matching tools
+   * Apply configured tool discovery rules and automatically register matching tools
    */
-  async applyRegistrationPatterns(): Promise<void> {
-    if (this.registrationPatterns.length === 0) {
-      logger.debug('No registration patterns to apply');
+  async applyDiscoveryRules(): Promise<void> {
+    if (this.toolDiscoveryRules.length === 0) {
+      logger.debug('No tool discovery rules to apply');
       return;
     }
 
@@ -110,13 +110,13 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
             if (processedTools.has(namespacedName)) continue;
             processedTools.add(namespacedName);
             
-            // Check if the tool matches any pattern
-            if (this.shouldRegisterTool(serverId, tool.name)) {
+            // Check if the tool matches any discovery rule
+            if (this.shouldDiscoverTool(serverId, tool.name)) {
               try {
-                await this.registerDirectTool(serverId, tool.name);
+                await this.createToolAlias(serverId, tool.name);
                 registerCount++;
               } catch (error) {
-                logger.error(`Failed to register tool ${tool.name} from server ${serverId}:`, error);
+                logger.error(`Failed to create tool alias for ${tool.name} from server ${serverId}:`, error);
               }
             }
           }
@@ -133,45 +133,45 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * Determine if a tool should be registered based on patterns
+   * Determine if a tool should be discovered based on rules
    * @param serverId Server ID
    * @param toolName Tool name
-   * @returns true if the tool should be registered
+   * @returns true if the tool should be discovered and aliased
    */
-  private shouldRegisterTool(serverId: string, toolName: string): boolean {
-    // Don't register by default if there are no patterns
-    if (this.registrationPatterns.length === 0) return false;
+  private shouldDiscoverTool(serverId: string, toolName: string): boolean {
+    // Don't discover by default if there are no rules
+    if (this.toolDiscoveryRules.length === 0) return false;
     
-    let shouldRegister = false;
+    let shouldDiscover = false;
     
-    // Evaluate all patterns in order
-    for (const pattern of this.registrationPatterns) {
-      const serverMatched = matchWildcard(pattern.serverPattern, serverId);
-      const toolMatched = matchWildcard(pattern.toolPattern, toolName);
+    // Evaluate all discovery rules in order
+    for (const rule of this.toolDiscoveryRules) {
+      const serverMatched = matchWildcard(rule.serverPattern, serverId);
+      const toolMatched = matchWildcard(rule.toolPattern, toolName);
       
-      // If the pattern matches
+      // If the rule matches
       if (serverMatched && toolMatched) {
-        if (pattern.exclude) {
-          // If matched an exclusion pattern, don't register
+        if (rule.exclude) {
+          // If matched an exclusion rule, don't discover
           return false;
         } else {
-          // If matched an inclusion pattern, mark as registration candidate
-          shouldRegister = true;
+          // If matched an inclusion rule, mark as discovery candidate
+          shouldDiscover = true;
         }
       }
     }
     
-    return shouldRegister;
+    return shouldDiscover;
   }
 
   /**
-   * Directly register a tool from a specific server
+   * Create an alias for a tool from a specific server
    * @param serverId Server ID
-   * @param toolName Tool name to register
-   * @param newName New tool name (optional)
-   * @returns Registration result
+   * @param toolName Original tool name
+   * @param aliasName New alias name (optional)
+   * @returns Alias creation result
    */
-  private async registerDirectTool(serverId: string, toolName: string, newName?: string): Promise<any> {
+  private async createToolAlias(serverId: string, toolName: string, aliasName?: string): Promise<any> {
     try {
       // Check if server exists
       const availableServers = this.mcpManager.getAvailableServers();
@@ -187,16 +187,16 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
       }
       
       // Determine the actual tool name to use
-      const registrationName = newName || toolName;
+      const finalAliasName = aliasName || toolName;
       const namespacedName = `${serverId}:${toolName}`;
       
-      // 既に同じ名前のツールが登録されていないか確認
-      if (this.registeredTools.has(registrationName)) {
-        throw new Error(`A tool with name ${registrationName} is already registered`);
+      // 既に同じ名前のツールエイリアスがないか確認
+      if (this.toolAliases.has(finalAliasName)) {
+        throw new Error(`A tool alias with name ${finalAliasName} already exists`);
       }
 
-      // ツール情報を登録
-      this.registeredTools.set(registrationName, {
+      // ツールエイリアス情報を登録
+      this.toolAliases.set(finalAliasName, {
         namespacedName,
         serverId,
         originalName: toolName,
@@ -204,8 +204,8 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
         inputSchema: toolInfo.inputSchema,
       });
       
-      logger.info(`Registered direct tool: ${serverId}:${toolName} as ${registrationName}`);
-      return { success: true, name: registrationName };
+      logger.info(`Created tool alias: ${serverId}:${toolName} as ${finalAliasName}`);
+      return { success: true, name: finalAliasName };
     } catch (error) {
       logger.error(`Failed to register direct tool ${serverId}:${toolName}:`, error);
       throw new Error(`Failed to register tool: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -259,8 +259,8 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
         },
       },
       {
-        name: 'register_direct_tool',
-        description: 'Register a tool for direct access (with optional rename)',
+        name: 'create_tool_alias',
+        description: 'Create an alias for a server tool (with optional custom name)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -270,33 +270,33 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
             },
             toolName: {
               type: 'string',
-              description: 'The name of the tool to register',
+              description: 'The name of the tool to alias',
             },
             newName: {
               type: 'string',
-              description: 'Optional new name for the tool (if different from original name)',
+              description: 'Optional custom alias name (if different from original name)',
             },
           },
           required: ['serverId', 'toolName'],
         },
       },
       {
-        name: 'unregister_direct_tool',
-        description: 'Remove a directly registered tool',
+        name: 'remove_tool_alias',
+        description: 'Remove a tool alias',
         inputSchema: {
           type: 'object',
           properties: {
             toolName: {
               type: 'string',
-              description: 'The name of the tool to remove (must be a previously registered tool)',
+              description: 'The name of the tool alias to remove',
             },
           },
           required: ['toolName'],
         },
       },
       {
-        name: 'list_registered_tools',
-        description: 'List all directly registered tools',
+        name: 'list_aliased_tools',
+        description: 'List all tool aliases',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -367,15 +367,15 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
     // 標準ツールをコピー
     const allTools = [...this.standardTools];
     
-    // 登録済みのダイナミックツールをリストに追加
-    const dynamicTools = Array.from(this.registeredTools.entries()).map(([registeredName, tool]) => ({
-      name: registeredName,
-      description: tool.description || `Registered tool from ${tool.serverId} (original: ${tool.originalName})`,
+    // エイリアスされたツールをリストに追加
+    const aliasedTools = Array.from(this.toolAliases.entries()).map(([aliasName, tool]) => ({
+      name: aliasName,
+      description: tool.description || `Aliased tool from ${tool.serverId} (original: ${tool.originalName})`,
       inputSchema: tool.inputSchema
     }));
     
     // 両方を結合して返す
-    return [...allTools, ...dynamicTools];
+    return [...allTools, ...aliasedTools];
   }
 
   /**
@@ -383,21 +383,33 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
    */
   public async callTool(name: string, args: any = {}): Promise<any> {
     try {
-      // 登録済みツールであれば、そのツールの元のサーバーとツール名にリダイレクト
-      const registeredTool = this.registeredTools.get(name);
-      if (registeredTool) {
-        logger.info(`Calling registered tool: ${name} -> ${registeredTool.namespacedName}`);
+      // エイリアスされたツールであれば、元のサーバーとツール名にリダイレクト
+      const aliasedTool = this.toolAliases.get(name);
+      if (aliasedTool) {
+        logger.info(`Calling aliased tool: ${name} -> ${aliasedTool.namespacedName}`);
         try {
           const result = await this.mcpManager.callTool(
-            registeredTool.serverId, 
-            registeredTool.originalName, 
+            aliasedTool.serverId, 
+            aliasedTool.originalName, 
             args
           );
           return { result };
         } catch (error) {
-          logger.error(`Error calling registered tool ${name}:`, error);
+          logger.error(`Error calling aliased tool ${name}:`, error);
           throw new Error(`Error calling tool: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
+      }
+      
+      // 後方互換性のための処理（古い名前でのツール呼び出し）
+      if (name === 'register_direct_tool') {
+        logger.warn('Tool name "register_direct_tool" is deprecated, use "create_tool_alias" instead');
+        return await this.handleCreateToolAlias(args);
+      } else if (name === 'unregister_direct_tool') {
+        logger.warn('Tool name "unregister_direct_tool" is deprecated, use "remove_tool_alias" instead');
+        return await this.handleRemoveToolAlias(args);
+      } else if (name === 'list_registered_tools') {
+        logger.warn('Tool name "list_registered_tools" is deprecated, use "list_aliased_tools" instead');
+        return await this.handleListAliasedTools();
       }
       
       // 標準ツールの処理
@@ -417,14 +429,14 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
             conflicts: await this.mcpManager.getToolConflicts(),
           };
           
-        case 'register_direct_tool':
-          return await this.handleRegisterDirectTool(args);
+        case 'create_tool_alias':
+          return await this.handleCreateToolAlias(args);
           
-        case 'unregister_direct_tool':
-          return await this.handleUnregisterDirectTool(args);
+        case 'remove_tool_alias':
+          return await this.handleRemoveToolAlias(args);
           
-        case 'list_registered_tools':
-          return await this.handleListRegisteredTools();
+        case 'list_aliased_tools':
+          return await this.handleListAliasedTools();
 
         case 'list_server_tools':
           if (!args.serverId) {
@@ -468,15 +480,15 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
-   * 直接ツール登録処理
+   * ツールエイリアス作成処理
    */
-  public async handleRegisterDirectTool(args: any): Promise<any> {
+  public async handleCreateToolAlias(args: any): Promise<any> {
     if (!args.serverId || !args.toolName) {
       throw new Error('serverId and toolName are required');
     }
     
     try {
-      const result = await this.registerDirectTool(args.serverId, args.toolName, args.newName);
+      const result = await this.createToolAlias(args.serverId, args.toolName, args.newName);
       return {
         success: true,
         tool: {
@@ -486,36 +498,36 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
         }
       };
     } catch (error) {
-      logger.error(`Error registering direct tool:`, error);
-      throw new Error(`Registration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error(`Error creating tool alias:`, error);
+      throw new Error(`Alias creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
-   * 直接ツール登録解除処理
+   * ツールエイリアス削除処理
    */
-  public async handleUnregisterDirectTool(args: any): Promise<any> {
+  public async handleRemoveToolAlias(args: any): Promise<any> {
     if (!args.toolName) {
       throw new Error('toolName is required');
     }
     
     const toolName = args.toolName as string;
     
-    if (!this.registeredTools.has(toolName)) {
-      throw new Error(`No registered tool found with name: ${toolName}`);
+    if (!this.toolAliases.has(toolName)) {
+      throw new Error(`No tool alias found with name: ${toolName}`);
     }
     
-    this.registeredTools.delete(toolName);
-    logger.info(`Unregistered direct tool: ${toolName}`);
+    this.toolAliases.delete(toolName);
+    logger.info(`Removed tool alias: ${toolName}`);
     
     return { success: true };
   }
 
   /**
-   * 登録済みツール一覧取得処理
+   * エイリアスされたツール一覧取得処理
    */
-  public async handleListRegisteredTools(): Promise<any> {
-    const registeredTools = Array.from(this.registeredTools.entries()).map(([name, info]) => ({
+  public async handleListAliasedTools(): Promise<any> {
+    const aliasedTools = Array.from(this.toolAliases.entries()).map(([name, info]) => ({
       name,
       namespacedName: info.namespacedName,
       serverId: info.serverId,
@@ -523,7 +535,7 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
       description: info.description
     }));
     
-    return { tools: registeredTools };
+    return { tools: aliasedTools };
   }
   
   /**
@@ -541,9 +553,9 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
   
   /**
-   * ツール登録通知（ログ出力のみ）
+   * ツールエイリアス登録通知（ログ出力のみ）
    */
-  private registerDynamicToolHandler(toolName: string, toolInfo: RegisteredToolInfo): void {
-    logger.info(`Registered dynamic tool handler for: ${toolName} (${toolInfo.namespacedName})`);
+  private registerAliasedToolHandler(aliasName: string, toolInfo: AliasedToolInfo): void {
+    logger.info(`Registered tool alias handler for: ${aliasName} (${toolInfo.namespacedName})`);
   }
 }
