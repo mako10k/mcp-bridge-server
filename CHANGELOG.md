@@ -8,20 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0] - 2025-06-15
 
 ### Added
-- ツール登録パターン機能の実装 (`registrationPatterns`設定)
-- ワイルドカードパターンマッチング（`*`、`?`記号のサポート）
-- 詳細な自動ツール登録ログ出力
-- 登録パターンのサンプル設定ファイル追加
+- Implemented tool registration patterns feature (`registrationPatterns` configuration)
+- Added wildcard pattern matching (supporting `*` and `?` symbols)
+- Enhanced automatic tool registration logging
+- Added sample configuration files for registration patterns
 
 ### Fixed
-- MCPサーバーがツールレジストリからツールを正しく公開するよう修正
-- HTTP/STDIOトランスポート間でのツール共有の問題を解決
-- ツール呼び出し時のエラーハンドリングを改善
+- Fixed MCP servers to correctly publish tools from the tool registry
+- Resolved tool sharing issues between HTTP/STDIO transports
+- Improved error handling during tool invocation
 
 ### Changed
-- `MCPHttpServer`のツールハンドリングをツールレジストリと統合
-- `MCPMetaServer`を更新してツールレジストリの使用を最適化
-- ドキュメントを更新して登録パターンの使い方を説明
+- Integrated `MCPHttpServer` tool handling with the tool registry
+- Updated `MCPMetaServer` to optimize tool registry usage
+- Updated documentation to explain the usage of registration patterns
 
 ## [1.2.1] - 2025-06-14
 

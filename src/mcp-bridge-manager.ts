@@ -245,9 +245,9 @@ export class MCPBridgeManager {
   }
 
   /**
-   * 特定のサーバーのツール情報を取得する
-   * @param serverId サーバーID
-   * @returns ツール情報の配列
+   * Get tool information from a specific server
+   * @param serverId Server ID
+   * @returns Array of tool information
    */
   async getServerTools(serverId: string): Promise<{ name: string, description: string, inputSchema: any }[]> {
     const tools = await this.listTools(serverId);
@@ -386,12 +386,12 @@ export class MCPBridgeManager {
     return allTools.find(tool => tool.namespacedName === namespacedName) || null;
   }
   
-  // BridgeToolRegistryへのアクセスを提供
+  // Provide access to BridgeToolRegistry
   setToolRegistry(registry: IBridgeToolRegistry): void {
     this.toolRegistry = registry;
   }
   
-  // BridgeToolRegistryインスタンスを取得
+  // Get BridgeToolRegistry instance
   getToolRegistry(): IBridgeToolRegistry | null {
     return this.toolRegistry;
   }

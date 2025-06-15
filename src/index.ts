@@ -9,7 +9,7 @@ import { BridgeToolRegistry } from './bridge-tool-registry.js';
 import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
 
-// コマンドライン引数から設定ファイルのパスを取得
+// Get configuration file path from command line arguments
 const configPath = process.argv[2] || './mcp-config.json';
 logger.info(`Using configuration file: ${configPath}`);
 
@@ -20,13 +20,13 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// MCPの設定を読み込む
+// Load MCP configuration
 const mcpConfig = loadMCPConfig(configPath);
 
 // Initialize MCP Bridge Manager and Tool Registry
 const mcpManager = new MCPBridgeManager();
 const toolRegistry = new BridgeToolRegistry(mcpManager);
-// ツールレジストリへの参照を設定
+// Set reference to the tool registry
 mcpManager.setToolRegistry(toolRegistry);
 
 // Health check endpoint
@@ -98,8 +98,8 @@ app.post('/mcp/servers/:serverId/tools/call', async (req, res) => {
   }
 });
 
-// 古いAPI '/mcp/tools/call'は削除されました - v1.2.1から非推奨
-// 代わりに '/mcp/servers/:serverId/tools/call' エンドポイント、または直接登録されたツールを使用してください
+// Old API '/mcp/tools/call' has been removed - deprecated since v1.2.1
+// Use the '/mcp/servers/:serverId/tools/call' endpoint or directly registered tools instead
 
 // List resources from a specific MCP server
 app.get('/mcp/servers/:serverId/resources', async (req, res) => {
@@ -141,13 +141,13 @@ async function startServer() {
     // Initialize MCP connections
     await mcpManager.initialize(configPath);
     
-    // 登録パターンがあれば設定する
+    // Set registration patterns if configured
     if (mcpConfig.registrationPatterns && mcpConfig.registrationPatterns.length > 0) {
       logger.info(`Configuring ${mcpConfig.registrationPatterns.length} tool registration patterns`);
       toolRegistry.setRegistrationPatterns(mcpConfig.registrationPatterns);
     }
     
-    // configに直接登録するツール設定があれば登録する
+    // Register direct tools if configured in config
     if (mcpConfig.directTools && mcpConfig.directTools.length > 0) {
       logger.info(`Registering ${mcpConfig.directTools.length} direct tools from configuration`);
       for (const toolConfig of mcpConfig.directTools) {
@@ -159,7 +159,7 @@ async function startServer() {
       }
     }
     
-    // 登録パターンに基づいて自動登録を実行
+    // Execute automatic registration based on registration patterns
     await toolRegistry.applyRegistrationPatterns();
     
     app.listen(port, () => {
