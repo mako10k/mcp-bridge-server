@@ -10,6 +10,7 @@ import { logger } from '../utils/logger.js';
 // Zod schema for MCP server configuration
 export const MCPServerConfigSchema = z.object({
   name: z.string(),
+  displayName: z.string().optional(),
   transport: z.enum(['stdio', 'sse', 'http']).default('stdio'),
   // STDIO transport options
   command: z.string().optional(),

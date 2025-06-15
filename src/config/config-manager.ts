@@ -13,6 +13,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as chokidar from 'chokidar';
 import { EventEmitter } from 'events';
+import { z } from 'zod';
 import { logger } from '../utils/logger.js';
 import { MCPConfig, MCPConfigSchema, expandEnvVarsInObject, getDefaultConfig } from './mcp-config.js';
 
@@ -230,14 +231,34 @@ export class ConfigManager extends EventEmitter {
         }
       }
       
-      // Validate merged configuration
-      this.config = MCPConfigSchema.parse(loadedConfig);
-      
-      logger.info('Configuration successfully loaded and validated');
-      this.emit(ConfigEventType.LOADED, this.config);
+      try {
+        // Validate merged configuration
+        this.config = MCPConfigSchema.parse(loadedConfig);
+        logger.info('Configuration successfully loaded and validated');
+        this.emit(ConfigEventType.LOADED, this.config);
+      } catch (error) {
+        logger.error('Configuration validation error:');
+        
+        if (error instanceof z.ZodError) {
+          // Log detailed validation errors
+          error.errors.forEach((err: z.ZodIssue) => {
+            logger.error(`- Path: ${err.path.join('.')} - ${err.message}`);
+          });
+        } else {
+          logger.error(String(error));
+        }
+        
+        logger.warn('Using default configuration due to validation errors');
+        this.config = getDefaultConfig();
+        this.emit(ConfigEventType.ERROR, error);
+      }
     } catch (error) {
       logger.error('Failed to load configuration:', error);
       this.emit(ConfigEventType.ERROR, error);
+      
+      // Fallback to default configuration
+      logger.warn('Using default configuration due to load failure');
+      this.config = getDefaultConfig();
     }
   }
 
