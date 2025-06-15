@@ -37,7 +37,7 @@
       "maxRestarts": 3
     }
   ],
-  "registrationPatterns": [
+  "toolDiscoveryRules": [
     {
       "serverPattern": "filesystem",
       "toolPattern": "*",
@@ -54,7 +54,7 @@
       "exclude": true
     }
   ],
-  "directTools": [
+  "toolAliases": [
     {
       "serverId": "brave-search",
       "toolName": "search",

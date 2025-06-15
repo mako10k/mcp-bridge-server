@@ -1,0 +1,46 @@
+{
+  "servers": [
+    {
+      "name": "test-server-updated",
+      "displayName": "Updated Test Server",
+      "transport": "stdio",
+      "command": "echo",
+      "args": [
+        "Updated test server configuration"
+      ],
+      "enabled": true,
+      "timeout": 5000
+    },
+    {
+      "name": "google-search",
+      "displayName": "Google Search API",
+      "transport": "http",
+      "url": "http://localhost:3003/mcp",
+      "enabled": true,
+      "timeout": 20000
+    },
+    {
+      "name": "new-server",
+      "displayName": "New Server Added",
+      "transport": "stdio",
+      "command": "echo",
+      "args": [
+        "New server added via hot reload"
+      ],
+      "enabled": true,
+      "timeout": 10000
+    }
+  ],
+  "toolDiscoveryRules": [
+    {
+      "serverPattern": "*",
+      "toolPattern": "*",
+      "exclude": false
+    }
+  ],
+  "global": {
+    "logLevel": "info",
+    "maxConcurrentConnections": 10,
+    "requestTimeout": 20000
+  }
+}

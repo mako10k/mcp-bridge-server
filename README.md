@@ -14,9 +14,10 @@ A TypeScript-based HTTP gateway for multiple STDIO-based MCP (Model Context Prot
 - **Multi-Server Support**: Connect to multiple MCP servers simultaneously
 - **Dynamic Configuration**: JSON-based server configuration with environment variable expansion
 - **Tool Name Conflict Resolution**: Automatic detection and namespace-based resolution
-- **Tool Registration Patterns**: Automatically register tools matching wildcard patterns
+- **Auto Tool Discovery**: Automatically discover and register tools matching wildcard patterns
 - **Internal Tool Registry**: Manages tools directly within the bridge for efficient access
-- **Direct Tool Registration**: Register tools from any server for direct access
+- **Tool Aliasing**: Create aliases for tools from any server for direct access
+- **Server Retry Mechanism**: Automatic reconnection with exponential backoff and manual retry controls
 - **Robust Error Handling**: Comprehensive error handling for all transport types
 - **Comprehensive Logging**: Detailed logging for debugging MCP connections
 - **Type Safety**: Full TypeScript implementation with strict type checking
@@ -109,8 +110,14 @@ GET /health
 
 ### Server Management
 ```http
-# List available servers
+# List available servers with detailed status information
 GET /mcp/servers
+
+# Force retry connection to a specific server
+POST /mcp/servers/:serverId/retry
+
+# Force retry connection to all failed servers
+POST /mcp/servers/retry-all
 ```
 
 ### Tool Management
@@ -224,16 +231,31 @@ The Bridge Tool Registry provides the following features:
 
 The Bridge Tool Registry provides the following management tools:
 
-- **`list_servers`**: List all connected MCP servers
+#### Server Management
+- **`list_servers`**: List all MCP servers with detailed status information
+- **`retry_server`**: Force retry connection to a specific server
+- **`retry_all_servers`**: Force retry connection to all failed servers  
+- **`get_server_status`**: Get detailed status for a specific server
+
+#### Tool Management
 - **`list_all_tools`**: List all tools from all servers with namespace info
 - **`list_conflicts`**: Detect tool name conflicts between servers
 - **`list_server_tools`**: List tools from a specific server
 - **`call_server_tool`**: Call a tool on a specific MCP server
-- **`register_direct_tool`**: Register a tool for direct access
-- **`unregister_direct_tool`**: Remove a registered tool
-- **`list_registered_tools`**: List all directly registered tools
+
+#### Tool Aliasing (formerly Direct Registration)
+- **`create_tool_alias`**: Create an alias for easier tool access
+- **`remove_tool_alias`**: Remove a tool alias
+- **`list_aliased_tools`**: List all tool aliases
+
+#### Resource Management
 - **`list_server_resources`**: List resources from a specific server
 - **`read_server_resource`**: Read a resource from a specific server
+
+#### Legacy Tool Names (Deprecated)
+- **`register_direct_tool`**: Use `create_tool_alias` instead
+- **`unregister_direct_tool`**: Use `remove_tool_alias` instead  
+- **`list_registered_tools`**: Use `list_aliased_tools` instead
 
 ### Example: Using the Tool Registry
 

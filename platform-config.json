@@ -1,0 +1,18 @@
+{
+  "servers": [
+    {
+      "name": "platform-specific",
+      "displayName": "Platform Specific Server",
+      "transport": "stdio",
+      "command": "echo",
+      "args": [
+        "Linux specific configuration"
+      ],
+      "enabled": true,
+      "timeout": 5000
+    }
+  ],
+  "global": {
+    "platformName": "linux"
+  }
+}

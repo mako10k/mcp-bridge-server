@@ -6,12 +6,32 @@ import { logger } from './utils/logger.js';
 import { MCPServerConfig, loadMCPConfig, MCPConfig, getEnabledServers } from './config/mcp-config.js';
 import { IBridgeToolRegistry } from './bridge-tool-registry.js';
 
+// Server status enumeration
+export enum MCPServerStatus {
+  CONNECTED = 'connected',      // Successfully connected
+  DISCONNECTED = 'disconnected',// Disconnected
+  CONNECTING = 'connecting',    // Currently trying to connect
+  RETRYING = 'retrying',        // Retrying connection after failure
+  FAILED = 'failed'             // Failed after max retries
+}
+
+// Server status tracking information
+export interface MCPServerStatusInfo {
+  status: MCPServerStatus;      // Current status
+  retryCount: number;           // Current retry count
+  maxRetries: number;           // Maximum configured retries
+  lastRetryTime: Date | null;   // Last retry attempt time
+  nextRetryTime: Date | null;   // Next scheduled retry time
+  errorMessage: string | null;  // Latest error message
+}
+
 interface MCPConnection {
   id: string;
   config: MCPServerConfig;
   client: Client;
   transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport;
   connected: boolean;
+  statusInfo: MCPServerStatusInfo;
 }
 
 interface NamespacedTool {
@@ -31,12 +51,18 @@ export class MCPBridgeManager {
   private connections: Map<string, MCPConnection> = new Map();
   private config: MCPConfig | null = null;
   private toolRegistry: IBridgeToolRegistry | null = null;
+  private retryTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  
+  // Default retry configuration
+  private readonly DEFAULT_MAX_RETRIES = 5;
+  private readonly BASE_RETRY_DELAY = 1000; // 1 second
+  private readonly MAX_RETRY_DELAY = 30000; // 30 seconds
 
-  async initialize(configPath?: string): Promise<void> {
+  async initialize(configPath?: string, config?: MCPConfig): Promise<void> {
     logger.info('Initializing MCP Bridge Manager...');
     
-    // Load MCP server configuration
-    this.config = loadMCPConfig(configPath || './mcp-config.json');
+    // Use provided config or load from file
+    this.config = config || loadMCPConfig(configPath || './mcp-config.json');
     const enabledServers = getEnabledServers(this.config);
     logger.info(`Found ${enabledServers.length} enabled MCP server configurations`);
 
@@ -51,6 +77,12 @@ export class MCPBridgeManager {
   private async connectToServer(config: MCPServerConfig): Promise<void> {
     try {
       logger.info(`Connecting to MCP server: ${config.name} (transport: ${config.transport})`);
+
+      // Update status to connecting
+      const existingConnection = this.connections.get(config.name);
+      if (existingConnection) {
+        existingConnection.statusInfo.status = MCPServerStatus.CONNECTING;
+      }
 
       let transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport;
 
@@ -94,31 +126,48 @@ export class MCPBridgeManager {
       // Handle transport errors
       transport.onclose = () => {
         logger.warn(`MCP server ${config.name} transport closed`);
-        this.connections.delete(config.name);
+        this.handleServerDisconnection(config.name);
       };
 
       transport.onerror = (error: Error) => {
         logger.error(`MCP server ${config.name} transport error:`, error);
-        this.connections.delete(config.name);
+        this.handleServerError(config.name, error);
       };
 
       // Connect the client
       await client.connect(transport);
 
-      // Store the connection
+      // Store or update the connection
       const connection: MCPConnection = {
         id: config.name,
         config,
         client,
         transport,
-        connected: true
+        connected: true,
+        statusInfo: {
+          status: MCPServerStatus.CONNECTED,
+          retryCount: 0,
+          maxRetries: config.maxRestarts || this.DEFAULT_MAX_RETRIES,
+          lastRetryTime: null,
+          nextRetryTime: null,
+          errorMessage: null
+        }
       };
 
       this.connections.set(config.name, connection);
+      
+      // Clear any existing retry timeout
+      const retryTimeout = this.retryTimeouts.get(config.name);
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+        this.retryTimeouts.delete(config.name);
+      }
+      
       logger.info(`Successfully connected to MCP server: ${config.name}`);
 
     } catch (error) {
       logger.error(`Failed to connect to MCP server ${config.name}:`, error);
+      this.handleServerError(config.name, error as Error);
     }
   }
 
@@ -229,6 +278,61 @@ export class MCPBridgeManager {
     );
   }
 
+  /**
+   * Get detailed server information including configuration and status
+   */
+  getDetailedServerInfo(): Array<{
+    id: string;
+    name: string;
+    transport: string;
+    connected: boolean;
+    statusInfo: MCPServerStatusInfo;
+  }> {
+    const servers: Array<{
+      id: string;
+      name: string;
+      transport: string;
+      connected: boolean;
+      statusInfo: MCPServerStatusInfo;
+    }> = [];
+
+    // Add connected servers
+    for (const [serverId, connection] of this.connections.entries()) {
+      servers.push({
+        id: connection.id,
+        name: connection.config.name,
+        transport: connection.config.transport,
+        connected: connection.connected,
+        statusInfo: connection.statusInfo
+      });
+    }
+
+    // Add servers from config that aren't connected
+    if (this.config) {
+      const enabledServers = getEnabledServers(this.config);
+      for (const serverConfig of enabledServers) {
+        if (!this.connections.has(serverConfig.name)) {
+          servers.push({
+            id: serverConfig.name,
+            name: serverConfig.name,
+            transport: serverConfig.transport,
+            connected: false,
+            statusInfo: {
+              status: MCPServerStatus.DISCONNECTED,
+              retryCount: 0,
+              maxRetries: serverConfig.maxRestarts || this.DEFAULT_MAX_RETRIES,
+              lastRetryTime: null,
+              nextRetryTime: null,
+              errorMessage: null
+            }
+          });
+        }
+      }
+    }
+
+    return servers;
+  }
+
   async listTools(serverId: string): Promise<any[]> {
     const connection = this.connections.get(serverId);
     if (!connection || !connection.connected) {
@@ -259,6 +363,12 @@ export class MCPBridgeManager {
   }
 
   async callTool(serverId: string, toolName: string, arguments_: Record<string, any>): Promise<any> {
+    // Ensure server connection before tool call (triggers retry if needed)
+    const isConnected = await this.ensureServerConnection(serverId);
+    if (!isConnected) {
+      throw new Error(`MCP server ${serverId} not found, not connected, or failed to reconnect`);
+    }
+
     const connection = this.connections.get(serverId);
     if (!connection || !connection.connected) {
       throw new Error(`MCP server ${serverId} not found or not connected`);
@@ -272,11 +382,20 @@ export class MCPBridgeManager {
       return response;
     } catch (error) {
       logger.error(`Failed to call tool ${toolName} on server ${serverId}:`, error);
+      
+      // If tool call failed, it might be due to connection issues, trigger retry
+      this.handleServerError(serverId, error as Error);
       throw error;
     }
   }
 
   async listResources(serverId: string): Promise<any[]> {
+    // Ensure server connection before listing resources
+    const isConnected = await this.ensureServerConnection(serverId);
+    if (!isConnected) {
+      throw new Error(`MCP server ${serverId} not found, not connected, or failed to reconnect`);
+    }
+
     const connection = this.connections.get(serverId);
     if (!connection || !connection.connected) {
       throw new Error(`MCP server ${serverId} not found or not connected`);
@@ -287,11 +406,20 @@ export class MCPBridgeManager {
       return response.resources;
     } catch (error) {
       logger.error(`Failed to list resources for server ${serverId}:`, error);
+      
+      // If listing failed, it might be due to connection issues, trigger retry
+      this.handleServerError(serverId, error as Error);
       throw error;
     }
   }
 
   async readResource(serverId: string, resourceUri: string): Promise<any> {
+    // Ensure server connection before reading resource
+    const isConnected = await this.ensureServerConnection(serverId);
+    if (!isConnected) {
+      throw new Error(`MCP server ${serverId} not found, not connected, or failed to reconnect`);
+    }
+
     const connection = this.connections.get(serverId);
     if (!connection || !connection.connected) {
       throw new Error(`MCP server ${serverId} not found or not connected`);
@@ -304,6 +432,9 @@ export class MCPBridgeManager {
       return response;
     } catch (error) {
       logger.error(`Failed to read resource ${resourceUri} from server ${serverId}:`, error);
+      
+      // If reading failed, it might be due to connection issues, trigger retry
+      this.handleServerError(serverId, error as Error);
       throw error;
     }
   }
@@ -330,9 +461,14 @@ export class MCPBridgeManager {
     const allTools: NamespacedTool[] = [];
     
     for (const [serverId, connection] of this.connections.entries()) {
-      if (!connection.connected) continue;
-      
+      // Try to ensure connection before listing tools
       try {
+        const isConnected = await this.ensureServerConnection(serverId);
+        if (!isConnected) {
+          logger.warn(`Skipping tools from disconnected server: ${serverId}`);
+          continue;
+        }
+        
         const response = await connection.client.listTools();
         for (const tool of response.tools) {
           allTools.push({
@@ -345,6 +481,9 @@ export class MCPBridgeManager {
         }
       } catch (error) {
         logger.error(`Failed to get tools from server ${serverId}:`, error);
+        
+        // If listing tools failed, trigger retry
+        this.handleServerError(serverId, error as Error);
       }
     }
     
@@ -394,5 +533,338 @@ export class MCPBridgeManager {
   // Get BridgeToolRegistry instance
   getToolRegistry(): IBridgeToolRegistry | null {
     return this.toolRegistry;
+  }
+
+  /**
+   * Update configuration and reconnect servers if needed
+   * @param newConfig New configuration
+   */
+  async updateConfiguration(newConfig: MCPConfig): Promise<void> {
+    logger.info('Updating MCP Bridge configuration...');
+    
+    const oldConfig = this.config;
+    this.config = newConfig;
+    
+    // Get enabled servers in new configuration
+    const enabledServers = getEnabledServers(newConfig);
+    
+    // Track servers that need to be connected or reconnected
+    const serversToConnect: MCPServerConfig[] = [];
+    const serversToReconnect: MCPServerConfig[] = [];
+    
+    // Find servers to connect (new) or reconnect (changed config)
+    for (const serverConfig of enabledServers) {
+      const existingConnection = this.connections.get(serverConfig.name);
+      
+      if (!existingConnection) {
+        // New server to connect
+        serversToConnect.push(serverConfig);
+      } else {
+        // Check if configuration changed significantly
+        const oldServerConfig = oldConfig?.servers.find(s => s.name === serverConfig.name);
+        
+        if (oldServerConfig) {
+          // Check for significant changes that require reconnection
+          if (
+            oldServerConfig.transport !== serverConfig.transport ||
+            oldServerConfig.command !== serverConfig.command ||
+            oldServerConfig.url !== serverConfig.url ||
+            JSON.stringify(oldServerConfig.args) !== JSON.stringify(serverConfig.args) ||
+            JSON.stringify(oldServerConfig.env) !== JSON.stringify(serverConfig.env)
+          ) {
+            serversToReconnect.push(serverConfig);
+          }
+        }
+      }
+    }
+    
+    // Find servers to disconnect (removed from config)
+    const serversToDisconnect = Array.from(this.connections.keys())
+      .filter(serverId => !enabledServers.some(s => s.name === serverId));
+    
+    // Disconnect removed servers
+    for (const serverId of serversToDisconnect) {
+      logger.info(`Server ${serverId} removed from configuration, disconnecting...`);
+      await this.disconnectServer(serverId);
+    }
+    
+    // Reconnect changed servers
+    for (const serverConfig of serversToReconnect) {
+      logger.info(`Server ${serverConfig.name} configuration changed, reconnecting...`);
+      await this.disconnectServer(serverConfig.name);
+      await this.connectToServer(serverConfig);
+    }
+    
+    // Connect new servers
+    for (const serverConfig of serversToConnect) {
+      logger.info(`New server ${serverConfig.name} found in configuration, connecting...`);
+      await this.connectToServer(serverConfig);
+    }
+    
+    logger.info(`Configuration updated: ${this.connections.size} active connections`);
+  }
+
+  /**
+   * Disconnect a specific server
+   * @param serverId Server ID to disconnect
+   */
+  private async disconnectServer(serverId: string): Promise<void> {
+    const connection = this.connections.get(serverId);
+    
+    if (connection) {
+      try {
+        // Close the client
+        await connection.client.close();
+        logger.info(`Disconnected from server: ${serverId}`);
+      } catch (error) {
+        logger.error(`Error disconnecting from server ${serverId}:`, error);
+      }
+      
+      // Remove from connections map
+      this.connections.delete(serverId);
+    }
+  }
+
+  /**
+   * Handle server disconnection
+   * @param serverId Server ID that disconnected
+   */
+  private handleServerDisconnection(serverId: string): void {
+    const connection = this.connections.get(serverId);
+    if (connection) {
+      connection.connected = false;
+      connection.statusInfo.status = MCPServerStatus.DISCONNECTED;
+      logger.info(`Server ${serverId} disconnected, scheduling retry...`);
+      this.scheduleRetry(serverId);
+    }
+  }
+
+  /**
+   * Handle server error
+   * @param serverId Server ID that encountered error
+   * @param error Error that occurred
+   */
+  private handleServerError(serverId: string, error: Error): void {
+    const connection = this.connections.get(serverId);
+    if (connection) {
+      connection.connected = false;
+      connection.statusInfo.errorMessage = error.message;
+      logger.error(`Server ${serverId} encountered error: ${error.message}`);
+      this.scheduleRetry(serverId);
+    } else {
+      // Create a minimal connection entry for retry purposes
+      const serverConfig = this.config?.servers.find(s => s.name === serverId);
+      if (serverConfig && serverConfig.enabled) {
+        // Create a placeholder connection for tracking retry status
+        const placeholderConnection: MCPConnection = {
+          id: serverId,
+          config: serverConfig,
+          client: null as any, // placeholder
+          transport: null as any, // placeholder
+          connected: false,
+          statusInfo: {
+            status: MCPServerStatus.FAILED,
+            retryCount: 0,
+            maxRetries: serverConfig.maxRestarts || this.DEFAULT_MAX_RETRIES,
+            lastRetryTime: null,
+            nextRetryTime: null,
+            errorMessage: error.message
+          }
+        };
+        
+        this.connections.set(serverId, placeholderConnection);
+        logger.error(`Server ${serverId} failed to connect: ${error.message}`);
+        this.scheduleRetry(serverId);
+      }
+    }
+  }
+
+  /**
+   * Schedule retry for a server
+   * @param serverId Server ID to retry
+   */
+  private scheduleRetry(serverId: string): void {
+    const connection = this.connections.get(serverId);
+    const serverConfig = this.config?.servers.find(s => s.name === serverId);
+    
+    if (!serverConfig || !serverConfig.enabled) {
+      return;
+    }
+
+    // Clear existing timeout if any
+    const existingTimeout = this.retryTimeouts.get(serverId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // Get current retry state
+    let retryCount = 0;
+    let maxRetries = serverConfig.maxRestarts || this.DEFAULT_MAX_RETRIES;
+    
+    if (connection) {
+      retryCount = connection.statusInfo.retryCount;
+      maxRetries = connection.statusInfo.maxRetries;
+      
+      // Check if max retries exceeded BEFORE incrementing
+      if (retryCount >= maxRetries) {
+        logger.warn(`Server ${serverId} exceeded max retries (${maxRetries}), marking as failed`);
+        connection.statusInfo.status = MCPServerStatus.FAILED;
+        connection.statusInfo.nextRetryTime = null;
+        return;
+      }
+      
+      // Increment retry count and update state
+      connection.statusInfo.retryCount++;
+      connection.statusInfo.lastRetryTime = new Date();
+      connection.statusInfo.status = MCPServerStatus.RETRYING;
+    }
+
+    // Calculate exponential backoff delay using the current retry count
+    const retryDelay = Math.min(
+      this.BASE_RETRY_DELAY * Math.pow(2, retryCount),
+      this.MAX_RETRY_DELAY
+    );
+
+    const nextRetryTime = new Date(Date.now() + retryDelay);
+    
+    if (connection) {
+      connection.statusInfo.nextRetryTime = nextRetryTime;
+    }
+
+    logger.info(`Scheduling retry for server ${serverId} in ${retryDelay}ms (attempt ${retryCount + 1}/${maxRetries})`);
+
+    const timeout = setTimeout(async () => {
+      this.retryTimeouts.delete(serverId);
+      logger.info(`Retrying connection to server ${serverId}...`);
+      await this.connectToServer(serverConfig);
+    }, retryDelay);
+
+    this.retryTimeouts.set(serverId, timeout);
+  }
+
+  /**
+   * Force retry for a specific server
+   * @param serverId Server ID to force retry
+   */
+  async forceRetryServer(serverId: string): Promise<void> {
+    const serverConfig = this.config?.servers.find(s => s.name === serverId);
+    
+    if (!serverConfig) {
+      throw new Error(`Server ${serverId} not found in configuration`);
+    }
+
+    if (!serverConfig.enabled) {
+      throw new Error(`Server ${serverId} is disabled in configuration`);
+    }
+
+    logger.info(`Force retrying server ${serverId}...`);
+    
+    // Clear existing timeout if any
+    const existingTimeout = this.retryTimeouts.get(serverId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      this.retryTimeouts.delete(serverId);
+    }
+
+    // Reset retry count for force retry
+    const connection = this.connections.get(serverId);
+    if (connection) {
+      connection.statusInfo.retryCount = 0;
+      connection.statusInfo.status = MCPServerStatus.CONNECTING;
+      connection.statusInfo.lastRetryTime = new Date();
+      connection.statusInfo.nextRetryTime = null;
+      connection.statusInfo.errorMessage = null;
+    }
+
+    await this.connectToServer(serverConfig);
+  }
+
+  /**
+   * Force retry for all failed servers
+   */
+  async forceRetryAllServers(): Promise<void> {
+    const failedServers: string[] = [];
+    
+    // Find all failed servers
+    for (const [serverId, connection] of this.connections.entries()) {
+      if (connection.statusInfo.status === MCPServerStatus.FAILED || 
+          connection.statusInfo.status === MCPServerStatus.DISCONNECTED) {
+        failedServers.push(serverId);
+      }
+    }
+
+    // Also check for servers in config that aren't connected
+    if (this.config) {
+      const enabledServers = getEnabledServers(this.config);
+      for (const serverConfig of enabledServers) {
+        if (!this.connections.has(serverConfig.name)) {
+          failedServers.push(serverConfig.name);
+        }
+      }
+    }
+
+    logger.info(`Force retrying ${failedServers.length} failed servers...`);
+
+    // Retry all failed servers
+    for (const serverId of failedServers) {
+      try {
+        await this.forceRetryServer(serverId);
+      } catch (error) {
+        logger.error(`Failed to force retry server ${serverId}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Get server status information
+   * @param serverId Server ID to get status for
+   */
+  getServerStatus(serverId: string): MCPServerStatusInfo | null {
+    const connection = this.connections.get(serverId);
+    return connection ? connection.statusInfo : null;
+  }
+
+  /**
+   * Get all server statuses
+   */
+  getAllServerStatuses(): Map<string, MCPServerStatusInfo> {
+    const statuses = new Map<string, MCPServerStatusInfo>();
+    
+    for (const [serverId, connection] of this.connections.entries()) {
+      statuses.set(serverId, connection.statusInfo);
+    }
+
+    return statuses;
+  }
+
+  /**
+   * Ensure server is connected before tool call (triggers retry if needed)
+   * @param serverId Server ID to check
+   */
+  async ensureServerConnection(serverId: string): Promise<boolean> {
+    const connection = this.connections.get(serverId);
+    
+    if (!connection) {
+      // Server not found, try to connect
+      const serverConfig = this.config?.servers.find(s => s.name === serverId);
+      if (serverConfig && serverConfig.enabled) {
+        logger.info(`Server ${serverId} not connected, attempting connection for tool call...`);
+        await this.connectToServer(serverConfig);
+        const newConnection = this.connections.get(serverId);
+        return newConnection ? newConnection.connected : false;
+      }
+      return false;
+    }
+
+    if (connection.connected && connection.statusInfo.status === MCPServerStatus.CONNECTED) {
+      return true;
+    }
+
+    // Server exists but not connected, trigger retry regardless of retry limits
+    logger.info(`Server ${serverId} not connected for tool call, triggering retry...`);
+    await this.forceRetryServer(serverId);
+    
+    const updatedConnection = this.connections.get(serverId);
+    return updatedConnection ? updatedConnection.connected : false;
   }
 }

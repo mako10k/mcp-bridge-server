@@ -10,6 +10,7 @@ import { logger } from '../utils/logger.js';
 // Zod schema for MCP server configuration
 export const MCPServerConfigSchema = z.object({
   name: z.string(),
+  displayName: z.string().optional(),
   transport: z.enum(['stdio', 'sse', 'http']).default('stdio'),
   // STDIO transport options
   command: z.string().optional(),
@@ -43,11 +44,25 @@ export type MCPServerConfig = z.infer<typeof MCPServerConfigSchema>;
 // Schema for the complete MCP configuration file
 export const MCPConfigSchema = z.object({
   servers: z.array(MCPServerConfigSchema),
+  toolAliases: z.array(
+    z.object({
+      serverId: z.string(),
+      toolName: z.string(),
+      newName: z.string().optional(),
+    })
+  ).optional(),
   directTools: z.array(
     z.object({
       serverId: z.string(),
       toolName: z.string(),
       newName: z.string().optional(),
+    })
+  ).optional().describe('DEPRECATED: Use toolAliases instead'),
+  toolDiscoveryRules: z.array(
+    z.object({
+      serverPattern: z.string().describe('Server ID pattern (wildcards *,? supported)'),
+      toolPattern: z.string().describe('Tool name pattern (wildcards *,? supported)'),
+      exclude: z.boolean().default(false).describe('Whether to use as an exclusion pattern'),
     })
   ).optional(),
   registrationPatterns: z.array(
@@ -56,7 +71,7 @@ export const MCPConfigSchema = z.object({
       toolPattern: z.string().describe('Tool name pattern (wildcards *,? supported)'),
       exclude: z.boolean().default(false).describe('Whether to use as an exclusion pattern'),
     })
-  ).optional(),
+  ).optional().describe('DEPRECATED: Use toolDiscoveryRules instead'),
   global: z.object({
     logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
     maxConcurrentConnections: z.number().default(10),
