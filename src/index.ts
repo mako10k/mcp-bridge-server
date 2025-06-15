@@ -3,15 +3,68 @@
 import express from 'express';
 import cors from 'cors';
 import { z } from 'zod';
-import { loadMCPConfig } from './config/mcp-config.js';
+import * as path from 'path';
+import { ConfigManager, ConfigEventType } from './config/config-manager.js';
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
 import { BridgeToolRegistry } from './bridge-tool-registry.js';
 import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
 
-// Get configuration file path from command line arguments
-const configPath = process.argv[2] || './mcp-config.json';
+// Parse command line arguments
+function parseArgs() {
+  const args = {
+    configPath: './mcp-config.json',
+    additionalConfigPaths: [] as string[],
+    watchMode: false,
+    debug: false
+  };
+  
+  for (let i = 2; i < process.argv.length; i++) {
+    const arg = process.argv[i];
+    
+    if (arg === '--watch' || arg === '-w') {
+      args.watchMode = true;
+      continue;
+    }
+    
+    if (arg === '--debug' || arg === '-d') {
+      args.debug = true;
+      continue;
+    }
+    
+    if ((arg === '--config' || arg === '-c') && i + 1 < process.argv.length) {
+      args.configPath = process.argv[++i];
+      continue;
+    }
+    
+    if ((arg === '--add-config' || arg === '-a') && i + 1 < process.argv.length) {
+      args.additionalConfigPaths.push(process.argv[++i]);
+      continue;
+    }
+    
+    // If no flag, treat as the main config path
+    if (!arg.startsWith('-')) {
+      args.configPath = arg;
+    }
+  }
+  
+  return args;
+}
+
+// Parse command line arguments
+const args = parseArgs();
+const configPath = path.resolve(args.configPath);
+
 logger.info(`Using configuration file: ${configPath}`);
+if (args.additionalConfigPaths.length > 0) {
+  logger.info(`Additional configuration paths: ${args.additionalConfigPaths.join(', ')}`);
+}
+if (args.watchMode) {
+  logger.info('Watch mode enabled - will automatically reload on configuration changes');
+}
+if (args.debug) {
+  logger.info('Debug mode enabled - additional logging will be shown');
+}
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -20,12 +73,58 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Load MCP configuration
-const mcpConfig = loadMCPConfig(configPath);
+// Initialize Configuration Manager
+const configManager = new ConfigManager(configPath);
+// Add additional config paths if specified
+for (const additionalPath of args.additionalConfigPaths) {
+  configManager.addConfigSource(path.resolve(additionalPath), 50);
+}
+let mcpConfig: any = null;
 
 // Initialize MCP Bridge Manager and Tool Registry
 const mcpManager = new MCPBridgeManager();
 const toolRegistry = new BridgeToolRegistry(mcpManager);
+
+// Set up configuration change handler
+configManager.on(ConfigEventType.LOADED, (config) => {
+  mcpConfig = config;
+  logger.info('Configuration loaded');
+});
+
+configManager.on(ConfigEventType.RELOADED, async (config) => {
+  mcpConfig = config;
+  logger.info('Configuration reloaded, applying changes...');
+  
+  try {
+    // Update MCP Bridge Manager with new configuration
+    await mcpManager.updateConfiguration(config);
+    
+    // Update registration patterns if changed
+    if (config.registrationPatterns && config.registrationPatterns.length > 0) {
+      logger.info(`Reconfiguring ${config.registrationPatterns.length} tool registration patterns`);
+      toolRegistry.setRegistrationPatterns(config.registrationPatterns);
+      await toolRegistry.applyRegistrationPatterns();
+    }
+    
+    // Update direct tools if changed
+    if (config.directTools && config.directTools.length > 0) {
+      logger.info(`Updating ${config.directTools.length} direct tools from configuration`);
+      // First reset/remove existing directly registered tools
+      // Then register new ones from updated configuration
+      for (const toolConfig of config.directTools) {
+        await toolRegistry.handleRegisterDirectTool({
+          serverId: toolConfig.serverId,
+          toolName: toolConfig.toolName,
+          newName: toolConfig.newName
+        });
+      }
+    }
+    
+    logger.info('Configuration changes applied successfully');
+  } catch (error) {
+    logger.error('Error applying configuration changes:', error);
+  }
+});
 // Set reference to the tool registry
 mcpManager.setToolRegistry(toolRegistry);
 
@@ -138,8 +237,13 @@ mcpHttpServer.registerWithApp(app);
 // Start the server
 async function startServer() {
   try {
-    // Initialize MCP connections
-    await mcpManager.initialize(configPath);
+    // Initialize configuration manager
+    logger.info('Initializing configuration manager...');
+    mcpConfig = await configManager.initialize();
+    
+    // Initialize MCP connections using the loaded configuration
+    logger.info('Initializing MCP Bridge Manager...');
+    await mcpManager.initialize(configPath, mcpConfig);
     
     // Set registration patterns if configured
     if (mcpConfig.registrationPatterns && mcpConfig.registrationPatterns.length > 0) {
@@ -178,6 +282,7 @@ process.on('SIGINT', async () => {
   logger.info('Shutting down MCP Bridge Server...');
   await toolRegistry.shutdown();
   await mcpManager.shutdown();
+  configManager.shutdown();
   process.exit(0);
 });
 
@@ -185,6 +290,7 @@ process.on('SIGTERM', async () => {
   logger.info('Shutting down MCP Bridge Server...');
   await toolRegistry.shutdown();
   await mcpManager.shutdown();
+  configManager.shutdown();
   process.exit(0);
 });
 

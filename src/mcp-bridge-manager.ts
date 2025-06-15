@@ -32,11 +32,11 @@ export class MCPBridgeManager {
   private config: MCPConfig | null = null;
   private toolRegistry: IBridgeToolRegistry | null = null;
 
-  async initialize(configPath?: string): Promise<void> {
+  async initialize(configPath?: string, config?: MCPConfig): Promise<void> {
     logger.info('Initializing MCP Bridge Manager...');
     
-    // Load MCP server configuration
-    this.config = loadMCPConfig(configPath || './mcp-config.json');
+    // Use provided config or load from file
+    this.config = config || loadMCPConfig(configPath || './mcp-config.json');
     const enabledServers = getEnabledServers(this.config);
     logger.info(`Found ${enabledServers.length} enabled MCP server configurations`);
 
@@ -394,5 +394,95 @@ export class MCPBridgeManager {
   // Get BridgeToolRegistry instance
   getToolRegistry(): IBridgeToolRegistry | null {
     return this.toolRegistry;
+  }
+
+  /**
+   * Update configuration and reconnect servers if needed
+   * @param newConfig New configuration
+   */
+  async updateConfiguration(newConfig: MCPConfig): Promise<void> {
+    logger.info('Updating MCP Bridge configuration...');
+    
+    const oldConfig = this.config;
+    this.config = newConfig;
+    
+    // Get enabled servers in new configuration
+    const enabledServers = getEnabledServers(newConfig);
+    
+    // Track servers that need to be connected or reconnected
+    const serversToConnect: MCPServerConfig[] = [];
+    const serversToReconnect: MCPServerConfig[] = [];
+    
+    // Find servers to connect (new) or reconnect (changed config)
+    for (const serverConfig of enabledServers) {
+      const existingConnection = this.connections.get(serverConfig.name);
+      
+      if (!existingConnection) {
+        // New server to connect
+        serversToConnect.push(serverConfig);
+      } else {
+        // Check if configuration changed significantly
+        const oldServerConfig = oldConfig?.servers.find(s => s.name === serverConfig.name);
+        
+        if (oldServerConfig) {
+          // Check for significant changes that require reconnection
+          if (
+            oldServerConfig.transport !== serverConfig.transport ||
+            oldServerConfig.command !== serverConfig.command ||
+            oldServerConfig.url !== serverConfig.url ||
+            JSON.stringify(oldServerConfig.args) !== JSON.stringify(serverConfig.args) ||
+            JSON.stringify(oldServerConfig.env) !== JSON.stringify(serverConfig.env)
+          ) {
+            serversToReconnect.push(serverConfig);
+          }
+        }
+      }
+    }
+    
+    // Find servers to disconnect (removed from config)
+    const serversToDisconnect = Array.from(this.connections.keys())
+      .filter(serverId => !enabledServers.some(s => s.name === serverId));
+    
+    // Disconnect removed servers
+    for (const serverId of serversToDisconnect) {
+      logger.info(`Server ${serverId} removed from configuration, disconnecting...`);
+      await this.disconnectServer(serverId);
+    }
+    
+    // Reconnect changed servers
+    for (const serverConfig of serversToReconnect) {
+      logger.info(`Server ${serverConfig.name} configuration changed, reconnecting...`);
+      await this.disconnectServer(serverConfig.name);
+      await this.connectToServer(serverConfig);
+    }
+    
+    // Connect new servers
+    for (const serverConfig of serversToConnect) {
+      logger.info(`New server ${serverConfig.name} found in configuration, connecting...`);
+      await this.connectToServer(serverConfig);
+    }
+    
+    logger.info(`Configuration updated: ${this.connections.size} active connections`);
+  }
+
+  /**
+   * Disconnect a specific server
+   * @param serverId Server ID to disconnect
+   */
+  private async disconnectServer(serverId: string): Promise<void> {
+    const connection = this.connections.get(serverId);
+    
+    if (connection) {
+      try {
+        // Close the client
+        await connection.client.close();
+        logger.info(`Disconnected from server: ${serverId}`);
+      } catch (error) {
+        logger.error(`Error disconnecting from server ${serverId}:`, error);
+      }
+      
+      // Remove from connections map
+      this.connections.delete(serverId);
+    }
   }
 }
