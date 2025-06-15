@@ -244,6 +244,20 @@ export class MCPBridgeManager {
     }
   }
 
+  /**
+   * 特定のサーバーのツール情報を取得する
+   * @param serverId サーバーID
+   * @returns ツール情報の配列
+   */
+  async getServerTools(serverId: string): Promise<{ name: string, description: string, inputSchema: any }[]> {
+    const tools = await this.listTools(serverId);
+    return tools.map((tool: any) => ({
+      name: tool.name,
+      description: tool.description || '',
+      inputSchema: tool.input_schema || {}
+    }));
+  }
+
   async callTool(serverId: string, toolName: string, arguments_: Record<string, any>): Promise<any> {
     const connection = this.connections.get(serverId);
     if (!connection || !connection.connected) {

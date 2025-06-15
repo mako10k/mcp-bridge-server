@@ -5,7 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.1] - 2025-06-16
+## [1.3.0] - 2025-06-15
+
+### Added
+- ツール登録パターン機能の実装 (`registrationPatterns`設定)
+- ワイルドカードパターンマッチング（`*`、`?`記号のサポート）
+- 詳細な自動ツール登録ログ出力
+- 登録パターンのサンプル設定ファイル追加
+
+### Fixed
+- MCPサーバーがツールレジストリからツールを正しく公開するよう修正
+- HTTP/STDIOトランスポート間でのツール共有の問題を解決
+- ツール呼び出し時のエラーハンドリングを改善
+
+### Changed
+- `MCPHttpServer`のツールハンドリングをツールレジストリと統合
+- `MCPMetaServer`を更新してツールレジストリの使用を最適化
+- ドキュメントを更新して登録パターンの使い方を説明
+
+## [1.2.1] - 2025-06-14
 
 ### Added
 - Add environment variable expansion in configuration files using ${VAR} syntax

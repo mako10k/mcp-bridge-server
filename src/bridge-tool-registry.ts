@@ -10,6 +10,8 @@ export interface IBridgeToolRegistry {
   handleListRegisteredTools(): Promise<any>;
   startStdioServer(): Promise<void>;
   shutdown(): Promise<void>;
+  applyRegistrationPatterns(): Promise<void>;
+  setRegistrationPatterns(patterns: RegistrationPattern[]): void;
 }
 
 // 直接登録されたツールの情報を格納する型
@@ -19,6 +21,33 @@ interface RegisteredToolInfo {
   originalName: string;     // 元のツール名（サーバーID抜き）
   description?: string;     // ツールの説明
   inputSchema: any;         // 入力スキーマ
+}
+
+// 登録パターン定義型
+export interface RegistrationPattern {
+  serverPattern: string;    // サーバーIDのパターン（ワイルドカード対応）
+  toolPattern: string;      // ツール名のパターン（ワイルドカード対応）
+  exclude: boolean;         // 除外パターンか（true=除外、false=含める）
+}
+
+/**
+ * ワイルドカードパターンがテキストにマッチするか確認する
+ * サポートするワイルドカード: * (任意の文字列), ? (任意の1文字)
+ * @param pattern ワイルドカードパターン
+ * @param text 比較するテキスト
+ * @returns マッチする場合はtrue
+ */
+export function matchWildcard(pattern: string, text: string): boolean {
+  // パターンを正規表現用にエスケープ
+  let regexPattern = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  
+  // ワイルドカードを正規表現に変換
+  regexPattern = regexPattern.replace(/\*/g, '.*')
+                            .replace(/\?/g, '.');
+  
+  // 完全一致のための正規表現
+  const regex = new RegExp(`^${regexPattern}$`);
+  return regex.test(text);
 }
 
 // ツール情報を表す型
@@ -36,11 +65,151 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   private mcpManager: MCPBridgeManager;
   private registeredTools: Map<string, RegisteredToolInfo> = new Map(); // 直接登録されたツールを管理するマップ
   private standardTools: ToolDefinition[] = [];
+  private registrationPatterns: RegistrationPattern[] = []; // 登録パターン
 
   constructor(mcpManager: MCPBridgeManager) {
     this.mcpManager = mcpManager;
     this.initializeStandardTools();
     logger.info('Bridge Tool Registry initialized');
+  }
+
+  /**
+   * 登録パターンを設定する
+   * @param patterns 登録パターンの配列
+   */
+  setRegistrationPatterns(patterns: RegistrationPattern[]): void {
+    this.registrationPatterns = patterns;
+    logger.info(`Set ${patterns.length} tool registration patterns`);
+  }
+
+  /**
+   * 設定された登録パターンを適用し、マッチするツールを自動登録する
+   */
+  async applyRegistrationPatterns(): Promise<void> {
+    if (this.registrationPatterns.length === 0) {
+      logger.debug('No registration patterns to apply');
+      return;
+    }
+
+    try {
+      logger.info('Applying tool registration patterns...');
+      const allServers = this.mcpManager.getAvailableServers();
+      const processedTools: Set<string> = new Set(); // 処理済みのツールを記録するセット
+      let registerCount = 0;
+
+      // すべてのサーバーを処理
+      for (const serverId of allServers) {
+        try {
+          const serverTools = await this.mcpManager.getServerTools(serverId);
+          
+          // サーバーの各ツールにパターンマッチングを適用
+          for (const tool of serverTools) {
+            const namespacedName = `${serverId}:${tool.name}`;
+            
+            // 既に処理済みのツールはスキップ
+            if (processedTools.has(namespacedName)) continue;
+            processedTools.add(namespacedName);
+            
+            // ツールがパターンにマッチするか確認
+            if (this.shouldRegisterTool(serverId, tool.name)) {
+              try {
+                await this.registerDirectTool(serverId, tool.name);
+                registerCount++;
+              } catch (error) {
+                logger.error(`Failed to register tool ${tool.name} from server ${serverId}:`, error);
+              }
+            }
+          }
+        } catch (error) {
+          logger.error(`Error getting tools from server ${serverId}:`, error);
+        }
+      }
+
+      logger.info(`Applied registration patterns: ${registerCount} tools registered automatically`);
+    } catch (error) {
+      logger.error('Error applying registration patterns:', error);
+      throw new Error(`Failed to apply registration patterns: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * ツールを登録すべきかパターンに基づいて判断する
+   * @param serverId サーバーID
+   * @param toolName ツール名
+   * @returns 登録すべき場合はtrue
+   */
+  private shouldRegisterTool(serverId: string, toolName: string): boolean {
+    // パターンがない場合はデフォルトで登録しない
+    if (this.registrationPatterns.length === 0) return false;
+    
+    let shouldRegister = false;
+    
+    // すべてのパターンを順に評価
+    for (const pattern of this.registrationPatterns) {
+      const serverMatched = matchWildcard(pattern.serverPattern, serverId);
+      const toolMatched = matchWildcard(pattern.toolPattern, toolName);
+      
+      // パターンにマッチした場合
+      if (serverMatched && toolMatched) {
+        if (pattern.exclude) {
+          // 除外パターンにマッチした場合は登録しない
+          return false;
+        } else {
+          // 含めるパターンにマッチした場合は登録候補
+          shouldRegister = true;
+        }
+      }
+    }
+    
+    return shouldRegister;
+  }
+
+  /**
+   * 特定のサーバーのツールを直接登録する
+   * @param serverId サーバーID
+   * @param toolName 登録するツール名
+   * @param newName 新しいツール名（オプション）
+   * @returns 登録結果
+   */
+  private async registerDirectTool(serverId: string, toolName: string, newName?: string): Promise<any> {
+    try {
+      // サーバーが存在するか確認
+      const availableServers = this.mcpManager.getAvailableServers();
+      if (!availableServers.includes(serverId)) {
+        throw new Error(`Server ${serverId} not found or not connected`);
+      }
+      
+      // ツールの情報を取得
+      const serverTools = await this.mcpManager.getServerTools(serverId);
+      const toolInfo = serverTools.find(t => t.name === toolName);
+      if (!toolInfo) {
+        throw new Error(`Tool ${toolName} not found on server ${serverId}`);
+      }
+      
+      // 実際に使用するツール名を決定
+      const registrationName = newName || toolName;
+      const namespacedName = `${serverId}:${toolName}`;
+      
+      // 既に同じ名前のツールが登録されていないか確認
+      if (this.registeredTools.has(registrationName)) {
+        throw new Error(`A tool with name ${registrationName} is already registered`);
+      }
+
+      // ツール情報を登録
+      this.registeredTools.set(registrationName, {
+        namespacedName,
+        serverId,
+        originalName: toolName,
+        description: toolInfo.description,
+        inputSchema: toolInfo.inputSchema,
+      });
+      
+      logger.info(`Registered direct tool: ${serverId}:${toolName} as ${registrationName}`);
+      return { success: true, name: registrationName };
+    } catch (error) {
+      logger.error(`Failed to register direct tool ${serverId}:${toolName}:`, error);
+      throw new Error(`Failed to register tool: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**
@@ -307,45 +476,13 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
     }
     
     try {
-      const serverId = args.serverId as string;
-      const originalToolName = args.toolName as string;
-      const namespacedName = `${serverId}:${originalToolName}`;
-      const toolName = args.newName as string || originalToolName;
-      
-      // ツールが存在するか確認
-      const sourceServer = await this.mcpManager.getToolByNamespace(namespacedName);
-      if (!sourceServer) {
-        throw new Error(`Tool ${originalToolName} not found on server ${serverId}`);
-      }
-      
-      // 同じ名前のツールが既に登録されていないか確認
-      if (this.registeredTools.has(toolName)) {
-        throw new Error(`A tool with name ${toolName} is already registered`);
-      }
-      
-      // ツール情報を保存
-      const toolInfo: RegisteredToolInfo = {
-        namespacedName,
-        serverId,
-        originalName: originalToolName,
-        description: sourceServer.description,
-        inputSchema: sourceServer.inputSchema
-      };
-      
-      this.registeredTools.set(toolName, toolInfo);
-      
-      // ツールの登録をログ出力
-      this.registerDynamicToolHandler(toolName, toolInfo);
-      
-      logger.info(`Registered direct tool: ${toolName} (${serverId}:${originalToolName})`);
-      
-      return { 
-        success: true, 
+      const result = await this.registerDirectTool(args.serverId, args.toolName, args.newName);
+      return {
+        success: true,
         tool: {
-          name: toolName,
-          serverId,
-          originalName: originalToolName,
-          description: sourceServer.description
+          name: args.newName || args.toolName,
+          serverId: args.serverId,
+          originalName: args.toolName
         }
       };
     } catch (error) {

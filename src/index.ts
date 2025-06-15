@@ -3,10 +3,15 @@
 import express from 'express';
 import cors from 'cors';
 import { z } from 'zod';
+import { loadMCPConfig } from './config/mcp-config.js';
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
 import { BridgeToolRegistry } from './bridge-tool-registry.js';
 import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
+
+// コマンドライン引数から設定ファイルのパスを取得
+const configPath = process.argv[2] || './mcp-config.json';
+logger.info(`Using configuration file: ${configPath}`);
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -14,6 +19,9 @@ const port = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// MCPの設定を読み込む
+const mcpConfig = loadMCPConfig(configPath);
 
 // Initialize MCP Bridge Manager and Tool Registry
 const mcpManager = new MCPBridgeManager();
@@ -131,7 +139,28 @@ mcpHttpServer.registerWithApp(app);
 async function startServer() {
   try {
     // Initialize MCP connections
-    await mcpManager.initialize();
+    await mcpManager.initialize(configPath);
+    
+    // 登録パターンがあれば設定する
+    if (mcpConfig.registrationPatterns && mcpConfig.registrationPatterns.length > 0) {
+      logger.info(`Configuring ${mcpConfig.registrationPatterns.length} tool registration patterns`);
+      toolRegistry.setRegistrationPatterns(mcpConfig.registrationPatterns);
+    }
+    
+    // configに直接登録するツール設定があれば登録する
+    if (mcpConfig.directTools && mcpConfig.directTools.length > 0) {
+      logger.info(`Registering ${mcpConfig.directTools.length} direct tools from configuration`);
+      for (const toolConfig of mcpConfig.directTools) {
+        try {
+          await toolRegistry.handleRegisterDirectTool(toolConfig);
+        } catch (error) {
+          logger.error(`Failed to register direct tool ${toolConfig.serverId}:${toolConfig.toolName}:`, error);
+        }
+      }
+    }
+    
+    // 登録パターンに基づいて自動登録を実行
+    await toolRegistry.applyRegistrationPatterns();
     
     app.listen(port, () => {
       logger.info(`MCP Bridge Server running on port ${port}`);

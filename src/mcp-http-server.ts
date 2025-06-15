@@ -106,17 +106,29 @@ export class MCPHttpServer {
     // Handle tool listing requests
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       logger.debug('Handling ListTools request');
+      
+      // ツールレジストリからツールリストを取得
+      const toolRegistry = this.mcpManager.getToolRegistry();
+      if (toolRegistry) {
+        // ツールレジストリが利用可能な場合、そこから全ツールを取得
+        const tools = toolRegistry.getTools();
+        logger.debug(`Returning ${tools.length} tools from registry`);
+        return { tools };
+      }
+      
+      // ツールレジストリが設定されていない場合は基本的なツールのみ返す
+      logger.warn('Tool registry not available, returning basic tools only');
       return {
-        tools: [
-          {
-            name: 'list_servers',
-            description: 'List all available MCP servers connected to the bridge',
-            inputSchema: {
-              type: 'object',
-              properties: {},
-              required: []
-            }
-          },
+          tools: [
+            {
+              name: 'list_servers',
+              description: 'List all available MCP servers connected to the bridge',
+              inputSchema: {
+                type: 'object',
+                properties: {},
+                required: []
+              }
+            },
           {
             name: 'list_all_tools',
             description: 'List all tools from all connected MCP servers with namespace information',
@@ -223,6 +235,42 @@ export class MCPHttpServer {
         const { name, arguments: args = {} } = request.params;
         logger.debug(`Handling CallTool request for tool: ${name}`);
         
+        // ツールレジストリから呼び出し
+        const toolRegistry = this.mcpManager.getToolRegistry();
+        if (toolRegistry) {
+          try {
+            logger.debug(`Calling tool ${name} from registry`);
+            const result = await toolRegistry.callTool(name, args);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(result, null, 2),
+                },
+              ],
+            };
+          } catch (error) {
+            // ツールレジストリでエラーが発生した場合、標準処理にフォールバック
+            if (error instanceof Error && error.message.includes('Unknown tool')) {
+              logger.debug(`Tool ${name} not found in registry, falling back to standard tools`);
+            } else {
+              logger.error(`Error calling tool ${name} from registry:`, error);
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify({
+                      error: error instanceof Error ? error.message : 'Unknown error'
+                    }, null, 2),
+                  },
+                ],
+                isError: true,
+              };
+            }
+          }
+        }
+        
+        // 標準ツール処理（フォールバック）
         switch (name) {
           case 'list_servers':
             return {
