@@ -33,6 +33,20 @@
       "maxRestarts": 3
     }
   ],
+  "toolDiscoveryRules": [
+    {
+      "serverPattern": "*-stdio",
+      "toolPattern": "*",
+      "exclude": false
+    }
+  ],
+  "toolAliases": [
+    {
+      "serverId": "test-sse-server",
+      "toolName": "get_data",
+      "newName": "sse_data"
+    }
+  ],
   "global": {
     "logLevel": "info",
     "maxConcurrentConnections": 10,

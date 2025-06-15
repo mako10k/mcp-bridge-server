@@ -321,7 +321,8 @@ export class MCPHttpServer {
               }]
             };
             
-          case 'register_direct_tool':
+          case 'create_tool_alias':
+          case 'register_direct_tool': // 後方互換性のため
             if (!args.serverId || !args.toolName) {
               throw new Error('serverId and toolName are required');
             }
@@ -353,7 +354,7 @@ export class MCPHttpServer {
                 throw new Error('Bridge Tool Registry is not available');
               }
               
-              const toolRegistrationResult = await bridgeToolRegistry.handleRegisterDirectTool({
+              const toolRegistrationResult = await bridgeToolRegistry.handleCreateToolAlias({
                 serverId: serverId,
                 toolName: originalToolName,
                 newName: toolName
@@ -379,7 +380,8 @@ export class MCPHttpServer {
               };
             }
             
-          case 'unregister_direct_tool':
+          case 'remove_tool_alias':
+          case 'unregister_direct_tool': // 後方互換性のため
             if (!args.toolName) {
               throw new Error('toolName is required');
             }
@@ -394,7 +396,7 @@ export class MCPHttpServer {
                 throw new Error('Bridge Tool Registry is not available');
               }
               
-              const unregisterResult = await bridgeToolRegistry.handleUnregisterDirectTool({
+              const unregisterResult = await bridgeToolRegistry.handleRemoveToolAlias({
                 toolName
               });
               
@@ -418,7 +420,8 @@ export class MCPHttpServer {
               };
             }
             
-          case 'list_registered_tools':
+          case 'list_aliased_tools':
+          case 'list_registered_tools': // 後方互換性のため
             try {
               logger.info(`Listing registered tools via HTTP`);
               
@@ -428,7 +431,7 @@ export class MCPHttpServer {
                 throw new Error('Bridge Tool Registry is not available');
               }
               
-              const listResult = await bridgeToolRegistry.handleListRegisteredTools();
+              const listResult = await bridgeToolRegistry.handleListAliasedTools();
               
               return {
                 content: [{

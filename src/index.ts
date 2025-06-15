@@ -99,20 +99,34 @@ configManager.on(ConfigEventType.RELOADED, async (config) => {
     // Update MCP Bridge Manager with new configuration
     await mcpManager.updateConfiguration(config);
     
-    // Update registration patterns if changed
-    if (config.registrationPatterns && config.registrationPatterns.length > 0) {
-      logger.info(`Reconfiguring ${config.registrationPatterns.length} tool registration patterns`);
-      toolRegistry.setRegistrationPatterns(config.registrationPatterns);
-      await toolRegistry.applyRegistrationPatterns();
+    // Update tool discovery rules if changed
+    if (config.toolDiscoveryRules && config.toolDiscoveryRules.length > 0) {
+      logger.info(`Reconfiguring ${config.toolDiscoveryRules.length} tool discovery rules`);
+      toolRegistry.setDiscoveryRules(config.toolDiscoveryRules);
+      await toolRegistry.applyDiscoveryRules();
+    } else if (config.registrationPatterns && config.registrationPatterns.length > 0) {
+      // 後方互換性のためのフォールバック
+      logger.warn('DEPRECATED: Using legacy "registrationPatterns" - please update to "toolDiscoveryRules"');
+      toolRegistry.setDiscoveryRules(config.registrationPatterns);
+      await toolRegistry.applyDiscoveryRules();
     }
     
-    // Update direct tools if changed
-    if (config.directTools && config.directTools.length > 0) {
-      logger.info(`Updating ${config.directTools.length} direct tools from configuration`);
-      // First reset/remove existing directly registered tools
+    // Update tool aliases if changed
+    if (config.toolAliases && config.toolAliases.length > 0) {
+      logger.info(`Updating ${config.toolAliases.length} tool aliases from configuration`);
       // Then register new ones from updated configuration
+      for (const aliasConfig of config.toolAliases) {
+        await toolRegistry.handleCreateToolAlias({
+          serverId: aliasConfig.serverId,
+          toolName: aliasConfig.toolName,
+          newName: aliasConfig.newName
+        });
+      }
+    } else if (config.directTools && config.directTools.length > 0) {
+      // 後方互換性のためのフォールバック
+      logger.warn('DEPRECATED: Using legacy "directTools" - please update to "toolAliases"');
       for (const toolConfig of config.directTools) {
-        await toolRegistry.handleRegisterDirectTool({
+        await toolRegistry.handleCreateToolAlias({
           serverId: toolConfig.serverId,
           toolName: toolConfig.toolName,
           newName: toolConfig.newName
@@ -245,26 +259,40 @@ async function startServer() {
     logger.info('Initializing MCP Bridge Manager...');
     await mcpManager.initialize(configPath, mcpConfig);
     
-    // Set registration patterns if configured
-    if (mcpConfig.registrationPatterns && mcpConfig.registrationPatterns.length > 0) {
-      logger.info(`Configuring ${mcpConfig.registrationPatterns.length} tool registration patterns`);
-      toolRegistry.setRegistrationPatterns(mcpConfig.registrationPatterns);
+    // Set tool discovery rules if configured
+    if (mcpConfig.toolDiscoveryRules && mcpConfig.toolDiscoveryRules.length > 0) {
+      logger.info(`Configuring ${mcpConfig.toolDiscoveryRules.length} tool discovery rules`);
+      toolRegistry.setDiscoveryRules(mcpConfig.toolDiscoveryRules);
+    } else if (mcpConfig.registrationPatterns && mcpConfig.registrationPatterns.length > 0) {
+      // 後方互換性のためのフォールバック
+      logger.warn('DEPRECATED: Using legacy "registrationPatterns" - please update to "toolDiscoveryRules"');
+      toolRegistry.setDiscoveryRules(mcpConfig.registrationPatterns);
     }
     
-    // Register direct tools if configured in config
-    if (mcpConfig.directTools && mcpConfig.directTools.length > 0) {
-      logger.info(`Registering ${mcpConfig.directTools.length} direct tools from configuration`);
+    // Register tool aliases if configured in config
+    if (mcpConfig.toolAliases && mcpConfig.toolAliases.length > 0) {
+      logger.info(`Creating ${mcpConfig.toolAliases.length} tool aliases from configuration`);
+      for (const aliasConfig of mcpConfig.toolAliases) {
+        try {
+          await toolRegistry.handleCreateToolAlias(aliasConfig);
+        } catch (error) {
+          logger.error(`Failed to create tool alias ${aliasConfig.serverId}:${aliasConfig.toolName}:`, error);
+        }
+      }
+    } else if (mcpConfig.directTools && mcpConfig.directTools.length > 0) {
+      // 後方互換性のためのフォールバック
+      logger.warn('DEPRECATED: Using legacy "directTools" - please update to "toolAliases"');
       for (const toolConfig of mcpConfig.directTools) {
         try {
-          await toolRegistry.handleRegisterDirectTool(toolConfig);
+          await toolRegistry.handleCreateToolAlias(toolConfig);
         } catch (error) {
-          logger.error(`Failed to register direct tool ${toolConfig.serverId}:${toolConfig.toolName}:`, error);
+          logger.error(`Failed to create tool alias ${toolConfig.serverId}:${toolConfig.toolName}:`, error);
         }
       }
     }
     
-    // Execute automatic registration based on registration patterns
-    await toolRegistry.applyRegistrationPatterns();
+    // Execute automatic registration based on tool discovery rules
+    await toolRegistry.applyDiscoveryRules();
     
     app.listen(port, () => {
       logger.info(`MCP Bridge Server running on port ${port}`);
