@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2025-06-15
+
 ### Added
 - New configuration hot reload system with merged config from multiple sources
 - **Server retry mechanism with automatic reconnection**
