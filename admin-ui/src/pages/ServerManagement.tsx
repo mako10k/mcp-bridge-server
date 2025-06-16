@@ -57,49 +57,57 @@ export default function ServerManagement() {
 
   const fetchServers = async () => {
     try {
+      setLoading(true);
+      
+      // Fetch detailed server information (includes status)
+      const serversResponse = await fetch('http://localhost:3000/mcp/servers');
+      const serversData = await serversResponse.json();
+      const detailedServers = serversData.servers || [];
+
       // Fetch all server configurations
       const configResponse = await fetch('http://localhost:3000/mcp/config/servers');
       const configData = await configResponse.json();
-      const allServers = configData.servers || [];
+      const allServerConfigs = configData.servers || [];
 
-      // Fetch server statuses
-      const serversResponse = await fetch('http://localhost:3000/mcp/servers');
-      const serversData = await serversResponse.json();
-      const connectedServerIds = serversData.servers || [];
+      // Create a map of detailed server info by server ID
+      const serverInfoMap = new Map();
+      detailedServers.forEach((server: any) => {
+        serverInfoMap.set(server.id, server);
+      });
 
-      // Combine configuration and status data
-      const serverDetails = await Promise.all(
-        allServers.map(async (serverConfig: any) => {
-          const serverId = serverConfig.name;
-          let status = { status: 'disconnected', retryCount: 0 };
+      // Combine configuration and detailed status data
+      const combinedServers = allServerConfigs.map((config: any) => {
+        const serverId = config.name;
+        const serverInfo = serverInfoMap.get(serverId);
+        
+        return {
+          id: serverId,
+          name: serverId,
+          displayName: config.displayName || serverInfo?.name,
+          transport: config.transport,
+          command: config.command,
+          args: config.args,
+          cwd: config.cwd,
+          env: config.env || {},
+          enabled: config.enabled,
+          timeout: config.timeout,
+          restartOnFailure: config.restartOnFailure,
+          maxRestarts: config.maxRestarts,
+          url: config.url, // for HTTP transport
+          // Use the actual server status from the detailed info
+          statusInfo: serverInfo?.statusInfo || { 
+            status: 'disconnected', 
+            retryCount: 0,
+            maxRetries: 3,
+            lastRetryTime: null,
+            nextRetryTime: null,
+            errorMessage: null
+          },
+          connected: serverInfo?.connected || false
+        };
+      });
 
-          // If server is connected, fetch detailed status
-          if (connectedServerIds.includes(serverId)) {
-            try {
-              const statusResponse = await fetch(`http://localhost:3000/mcp/servers/${serverId}/status`);
-              const statusData = await statusResponse.json();
-              status = statusData.status;
-            } catch (error) {
-              console.error(`Failed to fetch status for ${serverId}:`, error);
-            }
-          }
-
-          return {
-            id: serverId,
-            name: serverId,
-            displayName: serverConfig.displayName,
-            transport: serverConfig.transport,
-            command: serverConfig.command,
-            args: serverConfig.args,
-            cwd: serverConfig.cwd,
-            env: serverConfig.env,
-            enabled: serverConfig.enabled,
-            status
-          };
-        })
-      );
-
-      setServers(serverDetails);
+      setServers(combinedServers);
     } catch (error) {
       console.error('Failed to fetch servers:', error);
     } finally {

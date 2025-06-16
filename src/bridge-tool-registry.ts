@@ -9,6 +9,7 @@ export interface IBridgeToolRegistry {
   callTool(name: string, args?: any): Promise<any>;
   handleCreateToolAlias(args: any): Promise<any>;
   handleRemoveToolAlias(args: any): Promise<any>;
+  handleUpdateToolAlias(args: any): Promise<any>;
   handleListAliasedTools(): Promise<any>;
   startStdioServer(): Promise<void>;
   shutdown(): Promise<void>;
@@ -23,6 +24,7 @@ interface AliasedToolInfo {
   originalName: string;     // Original tool name (without serverId)
   description?: string;     // Tool description
   inputSchema: any;         // Input schema
+  source: 'explicit' | 'auto-discovery'; // Source of the alias
 }
 
 // Tool discovery rule definition type
@@ -119,7 +121,7 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
             // Check if the tool matches any discovery rule
             if (this.shouldDiscoverTool(serverId, tool.name)) {
               try {
-                await this.createToolAlias(serverId, tool.name);
+                await this.createToolAlias(serverId, tool.name, undefined, 'auto-discovery');
                 registerCount++;
               } catch (error) {
                 logger.error(`Failed to create tool alias for ${tool.name} from server ${serverId}:`, error);
@@ -175,9 +177,10 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
    * @param serverId Server ID
    * @param toolName Original tool name
    * @param aliasName New alias name (optional)
+   * @param source Source of the alias ('explicit' or 'auto-discovery')
    * @returns Alias creation result
    */
-  private async createToolAlias(serverId: string, toolName: string, aliasName?: string): Promise<any> {
+  private async createToolAlias(serverId: string, toolName: string, aliasName?: string, source: 'explicit' | 'auto-discovery' = 'explicit'): Promise<any> {
     try {
       // Check if server exists
       const availableServers = this.mcpManager.getAvailableServers();
@@ -201,13 +204,14 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
         throw new Error(`A tool alias with name ${finalAliasName} already exists`);
       }
 
-      // Register tool alias information
+      // Register tool alias information with source
       this.toolAliases.set(finalAliasName, {
         namespacedName,
         serverId,
         originalName: toolName,
         description: toolInfo.description,
         inputSchema: toolInfo.inputSchema,
+        source: source
       });
       
       logger.info(`Created tool alias: ${serverId}:${toolName} as ${finalAliasName}`);
@@ -775,7 +779,8 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
       namespacedName: info.namespacedName,
       serverId: info.serverId,
       originalName: info.originalName,
-      description: info.description
+      description: info.description,
+      source: info.source
     }));
     
     return { tools: aliasedTools };
@@ -930,5 +935,51 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
    */
   getConfigManager(): DynamicConfigManager {
     return this.configManager;
+  }
+
+  /**
+   * Update tool alias name handler (for explicit aliases only)
+   */
+  public async handleUpdateToolAlias(args: any): Promise<any> {
+    if (!args.oldName || !args.newName) {
+      throw new Error('oldName and newName are required');
+    }
+
+    const { oldName, newName } = args;
+
+    try {
+      // Check if the old alias exists
+      const oldAlias = this.toolAliases.get(oldName);
+      if (!oldAlias) {
+        throw new Error(`Tool alias ${oldName} not found`);
+      }
+
+      // Only allow updating explicit aliases
+      if (oldAlias.source !== 'explicit') {
+        throw new Error(`Cannot update auto-discovery alias ${oldName}. Only explicit aliases can be renamed.`);
+      }
+
+      // Check if the new name is already taken
+      if (this.toolAliases.has(newName)) {
+        throw new Error(`Tool alias name ${newName} is already taken`);
+      }
+
+      // Create new alias with same properties but new name
+      this.toolAliases.set(newName, {
+        ...oldAlias
+      });
+
+      // Remove old alias
+      this.toolAliases.delete(oldName);
+
+      logger.info(`Tool alias renamed: ${oldName} -> ${newName}`);
+      return {
+        success: true,
+        message: `Tool alias renamed from ${oldName} to ${newName}`
+      };
+    } catch (error) {
+      logger.error(`Error updating tool alias ${oldName}:`, error);
+      throw new Error(`Failed to update tool alias: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }

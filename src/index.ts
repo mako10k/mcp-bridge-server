@@ -37,7 +37,7 @@ app.get('/health', (req, res) => {
 // Get available MCP servers (with status information)
 app.get('/mcp/servers', async (req, res) => {
   try {
-    const servers = mcpManager.getAvailableServers();
+    const servers = mcpManager.getDetailedServerInfo();
     res.json({ servers });
   } catch (error) {
     logger.error('Error getting MCP servers:', error);
@@ -139,6 +139,88 @@ app.post('/mcp/servers/:serverId/tools/call', async (req, res) => {
 // Old API '/mcp/tools/call' has been removed - deprecated since v1.2.1
 // Use the '/mcp/servers/:serverId/tools/call' endpoint or directly registered tools instead
 
+// Tool alias management endpoints
+
+// List all tool aliases
+app.get('/mcp/tool-aliases', (async (req, res) => {
+  try {
+    const result = await toolRegistry.handleListAliasedTools();
+    res.json(result);
+  } catch (error) {
+    logger.error('Error listing tool aliases:', error);
+    res.status(500).json({ error: 'Failed to list tool aliases' });
+  }
+}) as express.RequestHandler);
+
+// Create a tool alias
+app.post('/mcp/tool-aliases', (async (req, res) => {
+  try {
+    const { serverId, toolName, newName } = req.body;
+    if (!serverId || !toolName) {
+      return res.status(400).json({ error: 'serverId and toolName are required' });
+    }
+    
+    const result = await toolRegistry.handleCreateToolAlias({ serverId, toolName, newName });
+    res.json(result);
+  } catch (error) {
+    logger.error('Error creating tool alias:', error);
+    res.status(500).json({ error: 'Failed to create tool alias' });
+  }
+}) as express.RequestHandler);
+
+// Remove a tool alias
+app.delete('/mcp/tool-aliases/:aliasName', (async (req, res) => {
+  try {
+    const { aliasName } = req.params;
+    const result = await toolRegistry.handleRemoveToolAlias({ toolName: aliasName });
+    res.json(result);
+  } catch (error) {
+    logger.error(`Error removing tool alias ${req.params.aliasName}:`, error);
+    res.status(500).json({ error: 'Failed to remove tool alias' });
+  }
+}) as express.RequestHandler);
+
+// Get tool aliases by source (explicit or auto-discovery)
+app.get('/mcp/tool-aliases/explicit', (async (req, res) => {
+  try {
+    const result = await toolRegistry.handleListAliasedTools();
+    const explicitTools = result.tools.filter((tool: any) => tool.source === 'explicit');
+    res.json({ tools: explicitTools });
+  } catch (error) {
+    logger.error('Error listing explicit tool aliases:', error);
+    res.status(500).json({ error: 'Failed to list explicit tool aliases' });
+  }
+}) as express.RequestHandler);
+
+app.get('/mcp/tool-aliases/auto-discovery', (async (req, res) => {
+  try {
+    const result = await toolRegistry.handleListAliasedTools();
+    const autoDiscoveryTools = result.tools.filter((tool: any) => tool.source === 'auto-discovery');
+    res.json({ tools: autoDiscoveryTools });
+  } catch (error) {
+    logger.error('Error listing auto-discovery tool aliases:', error);
+    res.status(500).json({ error: 'Failed to list auto-discovery tool aliases' });
+  }
+}) as express.RequestHandler);
+
+// Update tool alias name (for explicit aliases only)
+app.put('/mcp/tool-aliases/:aliasName', (async (req, res) => {
+  try {
+    const { aliasName } = req.params;
+    const { newName } = req.body;
+    
+    if (!newName) {
+      return res.status(400).json({ error: 'newName is required' });
+    }
+    
+    const result = await toolRegistry.handleUpdateToolAlias({ oldName: aliasName, newName });
+    res.json(result);
+  } catch (error) {
+    logger.error(`Error updating tool alias ${req.params.aliasName}:`, error);
+    res.status(500).json({ error: 'Failed to update tool alias' });
+  }
+}) as express.RequestHandler);
+
 // List resources from a specific MCP server
 app.get('/mcp/servers/:serverId/resources', async (req, res) => {
   try {
@@ -238,6 +320,18 @@ app.delete('/mcp/config/servers/:serverId', (async (req, res) => {
   } catch (error) {
     logger.error(`Error removing server configuration for ${req.params.serverId}:`, error);
     res.status(500).json({ error: 'Failed to remove server configuration' });
+  }
+}) as express.RequestHandler);
+
+// Get global configuration
+app.get('/mcp/config/global', (async (req, res) => {
+  try {
+    const configManager = toolRegistry.getConfigManager();
+    const currentConfig = configManager.getCurrentConfig();
+    res.json({ config: currentConfig.global || {} });
+  } catch (error) {
+    logger.error('Error getting global configuration:', error);
+    res.status(500).json({ error: 'Failed to get global configuration' });
   }
 }) as express.RequestHandler);
 

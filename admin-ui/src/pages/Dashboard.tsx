@@ -1,23 +1,6 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw, Server, Wrench, AlertCircle, CheckCircle } from 'lucide-react';
-
-interface ServerData {
-  id: string;
-  name: string;
-  displayName?: string;
-  transport: string;
-  command?: string;
-  args?: string[];
-  cwd?: string;
-  env?: Record<string, string>;
-  enabled: boolean;
-  status?: {
-    status: string;
-    retryCount: number;
-    connectedAt?: string;
-    errorMessage?: string;
-  };
-}
+import { RefreshCw, Server, Wrench, CheckCircle } from 'lucide-react';
+import type { MCPServer } from '../types';
 
 interface StatsData {
   totalServers: number;
@@ -26,67 +9,29 @@ interface StatsData {
 }
 
 export default function Dashboard() {
-  const [servers, setServers] = useState<ServerData[]>([]);
+  const [servers, setServers] = useState<MCPServer[]>([]);
   const [stats, setStats] = useState<StatsData>({ totalServers: 0, connectedServers: 0, totalTools: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch all server configurations
-        const configResponse = await fetch('http://localhost:3000/mcp/config/servers');
-        const configData = await configResponse.json();
-        const allServers = configData.servers || [];
-
-        // Fetch connected server list
+        // Fetch server details
         const serversResponse = await fetch('http://localhost:3000/mcp/servers');
         const serversData = await serversResponse.json();
-        const connectedServerIds = serversData.servers || [];
+        const serverList = serversData.servers || [];
 
-        // Combine configuration and status data
-        const serverDetails = await Promise.all(
-          allServers.map(async (serverConfig: any) => {
-            const serverId = serverConfig.name;
-            let status = { status: 'disconnected', retryCount: 0 };
-
-            // If server is connected, fetch detailed status
-            if (connectedServerIds.includes(serverId)) {
-              try {
-                const statusResponse = await fetch(`http://localhost:3000/mcp/servers/${serverId}/status`);
-                const statusData = await statusResponse.json();
-                status = statusData.status;
-              } catch (error) {
-                console.error(`Failed to fetch status for ${serverId}:`, error);
-              }
-            }
-
-            return {
-              id: serverId,
-              name: serverId,
-              displayName: serverConfig.displayName,
-              transport: serverConfig.transport,
-              command: serverConfig.command,
-              args: serverConfig.args,
-              cwd: serverConfig.cwd,
-              env: serverConfig.env,
-              enabled: serverConfig.enabled,
-              status
-            };
-          })
-        );
-
-        setServers(serverDetails);
-
-        // Fetch tools
+        // Fetch tools count
         const toolsResponse = await fetch('http://localhost:3000/mcp/tools');
         const toolsData = await toolsResponse.json();
-        
-        // Calculate stats
-        const totalServers = serverDetails.length;
-        const connectedServers = serverDetails.filter(s => s.status?.status === 'connected').length;
-        const totalTools = toolsData.tools?.length || 0;
-        
-        setStats({ totalServers, connectedServers, totalTools });
+        const toolCount = toolsData.tools?.length || 0;
+
+        setServers(serverList);
+        setStats({
+          totalServers: serverList.length,
+          connectedServers: serverList.filter((s: MCPServer) => s.statusInfo.status === 'connected').length,
+          totalTools: toolCount,
+        });
       } catch (error) {
         console.error('Failed to fetch data:', error);
       } finally {
@@ -173,41 +118,41 @@ export default function Dashboard() {
                 <div 
                   key={server.id} 
                   className={`flex items-center justify-between p-4 rounded-lg ${
-                    server.status?.status === 'connected' ? 'bg-green-50' : 
-                    server.status?.status === 'connecting' || server.status?.status === 'retrying' ? 'bg-yellow-50' :
+                    server.statusInfo.status === 'connected' ? 'bg-green-50' : 
+                    server.statusInfo.status === 'connecting' || server.statusInfo.status === 'retrying' ? 'bg-yellow-50' :
                     'bg-red-50'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
                     <div className={`w-3 h-3 rounded-full ${
-                      server.status?.status === 'connected' ? 'bg-green-500' :
-                      server.status?.status === 'connecting' || server.status?.status === 'retrying' ? 'bg-yellow-500' :
+                      server.statusInfo.status === 'connected' ? 'bg-green-500' :
+                      server.statusInfo.status === 'connecting' || server.statusInfo.status === 'retrying' ? 'bg-yellow-500' :
                       'bg-red-500'
                     }`} />
                     <div>
-                      <p className="font-medium text-gray-900">{server.displayName || server.name}</p>
+                      <p className="font-medium text-gray-900">{server.name}</p>
                       <p className="text-sm text-gray-500">ID: {server.id}</p>
                       <p className="text-xs text-gray-400">
-                        Transport: {server.transport} | {server.enabled ? 'Enabled' : 'Disabled'}
+                        Transport: {server.transport} | {server.connected ? 'Connected' : 'Disconnected'}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className={`text-sm font-medium capitalize ${
-                      server.status?.status === 'connected' ? 'text-green-700' :
-                      server.status?.status === 'connecting' || server.status?.status === 'retrying' ? 'text-yellow-700' :
+                      server.statusInfo.status === 'connected' ? 'text-green-700' :
+                      server.statusInfo.status === 'connecting' || server.statusInfo.status === 'retrying' ? 'text-yellow-700' :
                       'text-red-700'
                     }`}>
-                      {server.status?.status || 'disconnected'}
+                      {server.statusInfo.status || 'disconnected'}
                     </p>
-                    {server.status?.connectedAt && (
+                    {server.statusInfo.lastRetryTime && (
                       <p className="text-xs text-gray-500">
-                        Connected {new Date(server.status.connectedAt).toLocaleTimeString()}
+                        Last retry: {new Date(server.statusInfo.lastRetryTime).toLocaleTimeString()}
                       </p>
                     )}
-                    {server.status?.errorMessage && (
+                    {server.statusInfo.errorMessage && (
                       <p className="text-xs text-red-500">
-                        Error: {server.status.errorMessage}
+                        Error: {server.statusInfo.errorMessage}
                       </p>
                     )}
                   </div>

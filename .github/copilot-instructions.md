@@ -116,3 +116,7 @@ This is an MCP Bridge Server project that acts as an HTTP gateway for multiple S
 - **MCP Specification**: Model Context Protocol specification for implementation details
 - **Express.js**: For HTTP server patterns and middleware
 - **Zod**: For schema validation patterns
+
+## Others
+
+- **MCP Tools**: Integrate or summarize MCP tools for similar functionality to minimize the number of tools

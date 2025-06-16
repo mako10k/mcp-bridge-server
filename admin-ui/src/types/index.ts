@@ -1,17 +1,21 @@
 export interface MCPServer {
   id: string;
   name: string;
-  command: string;
-  args?: string[];
-  cwd?: string;
-  env?: Record<string, string>;
-  status: MCPServerStatus;
-  connectedAt?: string;
-  lastError?: string;
-  retryCount?: number;
-  nextRetryAt?: string;
+  transport: 'stdio' | 'http' | 'sse';
+  connected: boolean;
+  statusInfo: MCPServerStatusInfo;
 }
 
+export interface MCPServerStatusInfo {
+  status: 'connected' | 'connecting' | 'disconnected' | 'failed' | 'retrying';
+  retryCount: number;
+  maxRetries: number;
+  lastRetryTime: string | null;
+  nextRetryTime: string | null;
+  errorMessage: string | null;
+}
+
+// Legacy interface for backward compatibility
 export interface MCPServerStatus {
   state: 'connected' | 'connecting' | 'disconnected' | 'failed' | 'retrying';
   connectedAt?: string;
@@ -21,26 +25,37 @@ export interface MCPServerStatus {
 }
 
 export interface MCPServerConfig {
-  name: string;
-  command: string;
+  name?: string;
+  displayName?: string;
+  transport: 'stdio' | 'http' | 'sse';
+  command?: string;
   args?: string[];
+  url?: string;
   cwd?: string;
   env?: Record<string, string>;
+  enabled?: boolean;
+  timeout?: number;
+  restartOnFailure?: boolean;
+  maxRestarts?: number;
 }
 
 export interface Tool {
   name: string;
+  namespacedName?: string;
   description?: string;
-  inputSchema: any;
+  inputSchema?: any;
   serverId?: string;
   serverName?: string;
   namespace?: string;
+  originalName?: string;
+  source?: 'explicit' | 'auto-discovery';
 }
 
 export interface ToolAlias {
   alias: string;
   originalName: string;
   serverId: string;
+  source: 'explicit' | 'auto-discovery';
 }
 
 export interface GlobalConfig {

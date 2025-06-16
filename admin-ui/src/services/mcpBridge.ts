@@ -48,16 +48,49 @@ export class MCPBridgeService {
   }
 
   async getToolAliases(): Promise<ToolAlias[]> {
-    const response = await api.get('/mcp/tools/aliases');
-    return response.data.aliases || [];
+    const response = await api.get('/mcp/tool-aliases');
+    return response.data.tools?.map((tool: any) => ({
+      alias: tool.name,
+      originalName: tool.originalName,
+      serverId: tool.serverId,
+      source: tool.source
+    })) || [];
+  }
+
+  async getExplicitToolAliases(): Promise<ToolAlias[]> {
+    const response = await api.get('/mcp/tool-aliases/explicit');
+    return response.data.tools?.map((tool: any) => ({
+      alias: tool.name,
+      originalName: tool.originalName,
+      serverId: tool.serverId,
+      source: tool.source
+    })) || [];
+  }
+
+  async getAutoDiscoveryTools(): Promise<ToolAlias[]> {
+    const response = await api.get('/mcp/tool-aliases/auto-discovery');
+    return response.data.tools?.map((tool: any) => ({
+      alias: tool.name,
+      originalName: tool.originalName,
+      serverId: tool.serverId,
+      source: tool.source
+    })) || [];
   }
 
   async createToolAlias(alias: string, originalName: string, serverId: string): Promise<void> {
-    await api.post('/mcp/tools/aliases', { alias, originalName, serverId });
+    await api.post('/mcp/tool-aliases', { 
+      serverId, 
+      toolName: originalName, 
+      newName: alias 
+    });
+  }
+
+  async updateToolAlias(oldName: string, newName: string): Promise<void> {
+    await api.put(`/mcp/tool-aliases/${oldName}`, { newName });
   }
 
   async removeToolAlias(alias: string): Promise<void> {
-    await api.delete(`/mcp/tools/aliases/${alias}`);
+    await api.delete(`/mcp/tool-aliases/${alias}`);
   }
 
   // Global Configuration
@@ -78,15 +111,15 @@ export class MCPBridgeService {
 
     return {
       totalServers: servers.length,
-      connectedServers: servers.filter(s => s.status.state === 'connected').length,
-      failedServers: servers.filter(s => s.status.state === 'failed').length,
+      connectedServers: servers.filter(s => s.statusInfo.status === 'connected').length,
+      failedServers: servers.filter(s => s.statusInfo.status === 'failed').length,
       totalTools: tools.length,
       aliasedTools: aliases.length,
     };
   }
 
   // Log Management (mock implementation for now)
-  async getLogs(limit = 100): Promise<LogEntry[]> {
+  async getLogs(_limit = 100): Promise<LogEntry[]> {
     // This would be implemented when log endpoint is available
     return [];
   }
