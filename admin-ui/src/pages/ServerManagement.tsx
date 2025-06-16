@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, RefreshCw, Edit, Trash2, Power, AlertCircle, CheckCircle } from 'lucide-react';
 import api from '../services/api';
+import type { MCPServer, MCPServerConfig } from '../types';
 
 interface ServerData {
   id: string;
@@ -51,10 +52,22 @@ export default function ServerManagement() {
     transport: 'stdio'
   });
   const [envVars, setEnvVars] = useState<EnvVar[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     fetchServers();
   }, []);
+
+  // Auto-clear success message after 5 seconds
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
 
   const fetchServers = async () => {
     try {
@@ -72,12 +85,12 @@ export default function ServerManagement() {
 
       // Create a map of detailed server info by server ID
       const serverInfoMap = new Map();
-      detailedServers.forEach((server: any) => {
+      detailedServers.forEach((server: MCPServer) => {
         serverInfoMap.set(server.id, server);
       });
 
       // Combine configuration and detailed status data
-      const combinedServers = allServerConfigs.map((config: any) => {
+      const combinedServers = allServerConfigs.map((config: MCPServerConfig) => {
         const serverId = config.name;
         const serverInfo = serverInfoMap.get(serverId);
         
@@ -118,6 +131,9 @@ export default function ServerManagement() {
 
   const handleAddServer = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    
     try {
       const response = await api.post('/mcp/config/servers', {
         serverId: formData.name.toLowerCase().replace(/\s+/g, '-'),
@@ -128,18 +144,33 @@ export default function ServerManagement() {
         setShowAddForm(false);
         setFormData({ name: '', command: '', args: [], cwd: '', env: {}, transport: 'stdio' });
         setEnvVars([]);
+        setSuccess('Server added successfully');
         fetchServers();
       } else {
-        console.error('Failed to add server');
+        setError('Failed to add server');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error adding server:', error);
+      let errorMessage = 'Failed to add server';
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response: { data: { error?: string } } }).response;
+        if (response?.data?.error) {
+          errorMessage = response.data.error;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
     }
   };
 
   const handleEditServer = (server: ServerData) => {
     setEditingServer(server.id);
     setShowAddForm(true);
+    setError(null);
+    setSuccess(null);
     setFormData({
       name: server.name,
       displayName: server.displayName,
@@ -163,6 +194,9 @@ export default function ServerManagement() {
     e.preventDefault();
     if (!editingServer) return;
 
+    setError(null);
+    setSuccess(null);
+
     try {
       const response = await api.put(`/mcp/config/servers/${editingServer}`, {
         config: formData
@@ -173,12 +207,25 @@ export default function ServerManagement() {
         setShowAddForm(false);
         setFormData({ name: '', command: '', args: [], cwd: '', env: {}, transport: 'stdio' });
         setEnvVars([]);
+        setSuccess('Server updated successfully');
         fetchServers();
       } else {
-        console.error('Failed to update server');
+        setError('Failed to update server');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error updating server:', error);
+      let errorMessage = 'Failed to update server';
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response: { data: { error?: string } } }).response;
+        if (response?.data?.error) {
+          errorMessage = response.data.error;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
     }
   };
 
@@ -187,6 +234,8 @@ export default function ServerManagement() {
     setShowAddForm(false);
     setFormData({ name: '', command: '', args: [], cwd: '', env: {}, transport: 'stdio' });
     setEnvVars([]);
+    setError(null);
+    setSuccess(null);
   };
 
   const addEnvVar = () => {
@@ -279,6 +328,8 @@ export default function ServerManagement() {
             setEditingServer(null);
             setEnvVars([]);
             setFormData({ name: '', command: '', args: [], cwd: '', env: {}, transport: 'stdio' });
+            setError(null);
+            setSuccess(null);
           }}
           className="btn btn-primary flex items-center"
         >
@@ -286,6 +337,35 @@ export default function ServerManagement() {
           Add Server
         </button>
       </div>
+
+      {/* Success/Error Messages */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <AlertCircle className="h-5 w-5 text-red-400" />
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <div className="mt-2 text-sm text-red-700">
+                {error}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-md p-4">
+          <div className="flex">
+            <CheckCircle className="h-5 w-5 text-green-400" />
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-green-800">Success</h3>
+              <div className="mt-2 text-sm text-green-700">
+                {success}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Server Form */}
       {showAddForm && (
@@ -355,7 +435,7 @@ export default function ServerManagement() {
                   value={formData.args?.join('\n') || ''}
                   onChange={(e) => setFormData({ 
                     ...formData, 
-                    args: e.target.value.split('\n').filter(arg => arg.trim()) 
+                    args: e.target.value.split('\n')
                   })}
                   placeholder="e.g., server.js&#10;--port&#10;3001"
                 />
@@ -465,6 +545,8 @@ export default function ServerManagement() {
                   setEditingServer(null);
                   setEnvVars([]);
                   setFormData({ name: '', command: '', args: [], cwd: '', env: {}, transport: 'stdio' });
+                  setError(null);
+                  setSuccess(null);
                 }}
                 className="mt-2 btn btn-primary"
               >
