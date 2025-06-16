@@ -1,10 +1,17 @@
-# Tool Management in MCP Bridge
+# Tool Management in MCP Bridge - Implementation Complete
 
-MCP Bridge provides two complementary approaches to manage tools from connected MCP servers: **Tool Aliasing** and **Auto Tool Discovery**.
+MCP Bridge provides comprehensive tool management through **Tool Aliasing** and **Auto Tool Discovery** features.
 
-## Tool Aliasing (formerly "Direct Registration")
+## ✅ Tool Aliasing (formerly "Direct Registration")
 
-Tool Aliasing allows you to create aliases for specific tools from any connected MCP server. This makes them directly accessible at the bridge's root level without requiring namespace prefixing.
+Tool Aliasing allows you to create aliases for specific tools from any connected MCP server, making them directly accessible without namespace prefixing.
+
+### Implementation Status
+- ✅ Configuration-based tool aliases
+- ✅ Runtime alias creation/removal via API
+- ✅ Admin UI for visual alias management
+- ✅ Search and filtering capabilities
+- ✅ Conflict detection and resolution
 
 ### Configuration
 
@@ -17,7 +24,7 @@ Tool aliases can be defined in the configuration file:
     {
       "serverId": "google-search",
       "toolName": "web_search",
-      "newName": "search"  // Optional custom name
+      "newName": "search"
     },
     {
       "serverId": "filesystem",
@@ -27,7 +34,34 @@ Tool aliases can be defined in the configuration file:
 }
 ```
 
-### Usage Example
+### Runtime Management
+
+```bash
+# Create alias via API
+curl -X POST http://localhost:3002/mcp/meta/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "create_tool_alias",
+    "arguments": {
+      "serverId": "git",
+      "toolName": "git_status",
+      "aliasName": "status"
+    }
+  }'
+
+# List all aliases
+curl http://localhost:3002/mcp/tool-aliases
+
+# Remove alias
+curl -X POST http://localhost:3002/mcp/meta/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "remove_tool_alias",
+    "arguments": {
+      "aliasName": "status"
+    }
+  }'
+```
 
 When a tool is aliased, it can be accessed directly via the bridge:
 

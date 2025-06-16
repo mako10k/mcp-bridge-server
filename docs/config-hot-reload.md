@@ -1,33 +1,55 @@
-# MCP Bridge Configuration Hot Reload
+# MCP Bridge Configuration Hot Reload - Implementation Complete
 
-This feature enhances MCP Bridge with advanced configuration management capabilities, including configuration hot reload and cross-platform support.
+This feature provides advanced configuration management capabilities, including configuration hot reload and runtime configuration updates.
 
-## Features
+## ✅ Implemented Features
 
-- **Hot Reload**: Automatically detect and apply configuration changes without restart
-- **Cross-Platform Support**: Load configurations from platform-specific locations
-- **Configuration Inheritance**: Merge configurations from multiple sources with priority system
-- **Command Line Options**: Additional CLI options for configuration management
+- **Hot Reload**: ✅ Automatically detect and apply configuration file changes without restart
+- **Runtime Updates**: ✅ Update configuration via REST API endpoints 
+- **Dynamic Server Management**: ✅ Add, update, remove servers without restart
+- **Global Settings**: ✅ Update HTTP port, logging, and other settings at runtime
+- **Tool Discovery Rules**: ✅ Update tool discovery patterns dynamically
+- **Configuration Validation**: ✅ Zod-based schema validation for all config changes
 
 ## Usage
 
-### Command Line Options
+### REST API Configuration Management
 
 ```bash
-# Basic usage with default config
-npm start
+# Get current global configuration
+curl http://localhost:3002/mcp/config/global
 
-# Specify a custom config file
-npm start -- --config ./my-config.json
+# Update global configuration
+curl -X PUT http://localhost:3002/mcp/config/global \
+  -H "Content-Type: application/json" \
+  -d '{"logLevel": "debug", "httpPort": 3003}'
 
-# Enable watch mode (auto reload on config changes)
-npm start -- --watch
+# Add a new server
+curl -X POST http://localhost:3002/mcp/config/servers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "serverId": "new-server",
+    "config": {
+      "name": "new-server",
+      "command": "npx",
+      "args": ["-y", "some-mcp-server"],
+      "enabled": true
+    }
+  }'
 
-# Specify additional config files
-npm start -- --config ./base-config.json --add-config ./overrides.json
-
-# Debug mode
-npm start -- --debug
+# Update tool discovery rules
+curl -X PUT http://localhost:3002/mcp/config/discovery-rules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rules": [
+      {
+        "serverPattern": "git*",
+        "toolPattern": "git_*",
+        "exclude": false
+      }
+    ]
+  }'
+```
 ```
 
 ### Configuration Sources
