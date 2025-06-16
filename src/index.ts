@@ -486,9 +486,9 @@ async function restartServerOnNewPort(newPort: number): Promise<void> {
     // Update current port
     currentPort = newPort;
     
-    // Start server on new port
-    server = app.listen(newPort, () => {
-      logger.info(`MCP Bridge Server restarted on port ${newPort}`);
+    // Start server on new port (localhost only for security)
+    server = app.listen(newPort, '127.0.0.1', () => {
+      logger.info(`MCP Bridge Server restarted on port ${newPort} (localhost only)`);
       logger.info(`Health check: http://localhost:${newPort}/health`);
       logger.info(`Available servers: http://localhost:${newPort}/mcp/servers`);
     });
@@ -545,8 +545,8 @@ async function startServer() {
     // Execute automatic discovery based on tool discovery rules
     await toolRegistry.applyDiscoveryRules();
     
-    server = app.listen(port, () => {
-      logger.info(`MCP Bridge Server running on port ${port}`);
+    server = app.listen(port, '127.0.0.1', () => {
+      logger.info(`MCP Bridge Server running on port ${port} (localhost only)`);
       logger.info(`Health check: http://localhost:${port}/health`);
       logger.info(`Available servers: http://localhost:${port}/mcp/servers`);
     });
