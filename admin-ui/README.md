@@ -1,54 +1,61 @@
-# React + TypeScript + Vite
+# MCP Bridge Admin UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Modern web-based admin interface for the MCP Bridge Server. Built with React, TypeScript, Vite, and TailwindCSS.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Real-time Dashboard**: Live server status monitoring and tool statistics
+- **Server Management**: Add, edit, remove, and retry MCP servers with visual feedback
+- **Tool Management**: View, create, and manage tool aliases with search and filtering
+- **Global Settings**: Configure HTTP port, logging level, and server settings
+- **Tool Discovery Settings**: Visual interface for managing auto-discovery rules
+- **Responsive Design**: Modern UI that works on desktop and mobile devices
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+- Node.js 18+
+- npm or yarn
+- MCP Bridge Server running on localhost
+
+### Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Configuration
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+The admin UI automatically detects the MCP Bridge Server port by trying common ports (3000, 3001, 3002, etc.) and connects to the first available server.
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+You can also manually specify the API base URL by setting the `VITE_API_BASE_URL` environment variable:
+
+```bash
+VITE_API_BASE_URL=http://localhost:3002 npm run dev
 ```
+
+## Technologies
+
+- **React 18**: Modern React with hooks and function components
+- **TypeScript**: Type safety and better development experience
+- **Vite**: Fast build tool and development server
+- **TailwindCSS**: Utility-first CSS framework
+- **React Query (@tanstack/react-query)**: Data fetching and caching
+- **React Hook Form**: Form handling with validation
+- **Axios**: HTTP client for API requests
+- **Heroicons**: Beautiful SVG icons
+
+## License
+
+Same as the main MCP Bridge Server project - MIT License.

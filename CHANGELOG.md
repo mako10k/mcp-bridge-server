@@ -8,11 +8,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Web-based Admin UI** - Modern React interface for managing the MCP Bridge Server
+  - Real-time dashboard with server status and tool statistics
+  - Server management: Add, edit, remove, and retry MCP servers
+  - Tool management: View, create, and manage tool aliases
+  - Global settings: Configure HTTP port, logging level, and other settings
+  - Tool discovery settings: Visual interface for managing auto-discovery rules
+  - Built with React, TypeScript, Vite, and TailwindCSS
+- **Dynamic configuration management** - Hot-reloadable configuration with runtime updates
+  - REST API endpoints for server configuration (`POST/PUT/DELETE /mcp/config/servers`)
+  - Global configuration updates (`PUT /mcp/config/global`)
+  - Tool discovery rules management (`GET/PUT /mcp/config/discovery-rules`)
+  - Automatic configuration file updates and server reloads
+- **Enhanced tool discovery system**
+  - Tool discovery rules now clear old auto-discovery aliases before applying new rules
+  - Prevents stale tool aliases when discovery rules are updated
+  - Ensures tool registry strictly reflects current discovery rules
+- **Security improvements**
+  - Server binds to localhost (127.0.0.1) only for security
+  - Prevents external network access until authentication features are implemented
 - **Tool schema validation and auto-fix functionality**
   - New global configuration option `fixInvalidToolSchemas` (default: `false`)
   - Strict mode (default): Tools with invalid schemas are rejected and skipped
   - Fix mode (optional): Invalid tool schemas are automatically normalized with proper structure
   - Enhanced error handling for malformed tool schemas from MCP servers
+
+### Changed
+- **HTTP port configuration** - Added `httpPort` to global configuration (default: 3002)
+- **Server startup binding** - Changed from all interfaces (0.0.0.0) to localhost-only (127.0.0.1)
+- **Tool discovery behavior** - Auto-discovery now clears existing aliases before applying new rules
+
+### Fixed
+- **Tool discovery rule updates** - Fixed issue where old tool aliases remained when discovery rules were changed
+- **Port detection** - Added server-info endpoint for dynamic port detection in admin UI
+- **Configuration consistency** - Ensured backend and UI reflect true configuration state
 
 ## [1.4.0] - 2025-06-15
 
