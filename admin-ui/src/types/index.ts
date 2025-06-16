@@ -67,6 +67,8 @@ export interface GlobalConfig {
   fixInvalidToolSchemas?: boolean;
   maxRetries?: number;
   retryInterval?: number;
+  maxConcurrentConnections?: number;
+  requestTimeout?: number;
 }
 
 export interface ServerStats {

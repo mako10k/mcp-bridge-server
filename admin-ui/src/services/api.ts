@@ -1,8 +1,63 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? '' // In production, assume same origin
-  : 'http://localhost:3000'; // Development
+/**
+ * Dynamically detect the MCP Bridge Server port
+ */
+async function detectMCPBridgePort(): Promise<string> {
+  // Common ports to try
+  const portsToTry = [3001, 3000, 3002, 3003, 8080];
+  
+  for (const port of portsToTry) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      
+      const response = await fetch(`http://localhost:${port}/mcp/server-info`, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'running') {
+          console.log(`MCP Bridge Server detected on port ${port}`);
+          return `http://localhost:${port}`;
+        }
+      }
+    } catch (error) {
+      // Port not responding, try next
+      continue;
+    }
+  }
+  
+  // Fallback to default
+  console.warn('Could not detect MCP Bridge Server port, using default 3001');
+  return 'http://localhost:3001';
+}
+
+// Initialize API base URL
+let API_BASE_URL: string;
+
+if (import.meta.env.MODE === 'production') {
+  API_BASE_URL = ''; // In production, assume same origin
+} else {
+  // Development - try to detect or use env var or default
+  API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  
+  // Try to auto-detect the correct port in development
+  detectMCPBridgePort().then((detectedURL) => {
+    if (detectedURL !== API_BASE_URL) {
+      API_BASE_URL = detectedURL;
+      // Update axios instance with new base URL
+      api.defaults.baseURL = API_BASE_URL;
+      console.log(`Updated API base URL to: ${API_BASE_URL}`);
+    }
+  }).catch((error) => {
+    console.warn('Failed to auto-detect MCP Bridge Server port:', error);
+  });
+}
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -12,10 +67,38 @@ export const api = axios.create({
   },
 });
 
-// Response interceptor for error handling
+// Response interceptor for error handling and port detection retry
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    // Prevent infinite retry loops
+    if (error.config._retry) {
+      console.error('API Error (retry failed):', error.response?.data || error.message);
+      return Promise.reject(error);
+    }
+    
+    // If connection refused, try to auto-detect the correct port
+    if (error.code === 'ECONNREFUSED' || error.response?.status === undefined) {
+      console.warn('Connection failed, attempting to detect correct MCP Bridge Server port...');
+      
+      try {
+        const newBaseURL = await detectMCPBridgePort();
+        if (newBaseURL !== api.defaults.baseURL) {
+          api.defaults.baseURL = newBaseURL;
+          console.log(`Retrying with detected port: ${newBaseURL}`);
+          
+          // Mark this request as a retry to prevent infinite loops
+          error.config._retry = true;
+          error.config.baseURL = newBaseURL;
+          
+          // Retry the original request with new base URL
+          return api.request(error.config);
+        }
+      } catch (detectError) {
+        console.error('Failed to detect MCP Bridge Server port:', detectError);
+      }
+    }
+    
     console.error('API Error:', error.response?.data || error.message);
     return Promise.reject(error);
   }

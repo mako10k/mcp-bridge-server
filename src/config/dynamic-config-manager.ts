@@ -262,6 +262,7 @@ export class DynamicConfigManager {
   getGlobalSettings(): NonNullable<MCPConfig['global']> {
     return {
       logLevel: this.currentConfig.global?.logLevel || 'info',
+      httpPort: this.currentConfig.global?.httpPort || 3000,
       maxConcurrentConnections: this.currentConfig.global?.maxConcurrentConnections || 10,
       requestTimeout: this.currentConfig.global?.requestTimeout || 30000,
       fixInvalidToolSchemas: this.currentConfig.global?.fixInvalidToolSchemas || false,

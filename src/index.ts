@@ -8,20 +8,25 @@ import { MCPBridgeManager } from './mcp-bridge-manager.js';
 import { BridgeToolRegistry } from './bridge-tool-registry.js';
 import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
+import { Server } from 'http';
+
+// Server instance reference for restart functionality
+let server: Server | null = null;
+let currentPort: number = 3000;
 
 // Get configuration file path from command line arguments
 const configPath = process.argv[2] || './mcp-config.json';
 logger.info(`Using configuration file: ${configPath}`);
 
 const app = express();
-const port = process.env.PORT || 3000;
+// Load MCP configuration first to get port setting
+const mcpConfig = loadMCPConfig(configPath);
+const port = Number(process.env.PORT || mcpConfig.global?.httpPort || 3000);
+currentPort = port;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Load MCP configuration
-const mcpConfig = loadMCPConfig(configPath);
 
 // Initialize MCP Bridge Manager and Tool Registry
 const mcpManager = new MCPBridgeManager();
@@ -32,6 +37,20 @@ mcpManager.setToolRegistry(toolRegistry);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Get server information (port, status, etc.)
+app.get('/mcp/server-info', (req, res) => {
+  try {
+    res.json({ 
+      port: currentPort,
+      status: 'running',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Error getting server info:', error);
+    res.status(500).json({ error: 'Failed to get server info' });
+  }
 });
 
 // Get available MCP servers (with status information)
@@ -343,7 +362,31 @@ app.put('/mcp/config/global', (async (req, res) => {
       return res.status(400).json({ error: 'config is required' });
     }
     
+    // Check if httpPort is being changed
+    const currentConfig = toolRegistry.getConfigManager().getCurrentConfig();
+    const currentHttpPort = currentConfig.global?.httpPort || 3000;
+    const newHttpPort = config.httpPort;
+    
     const result = await toolRegistry.handleUpdateGlobalConfig({ config });
+    
+    // If httpPort changed and update was successful, restart server on new port
+    if (result.success && newHttpPort && newHttpPort !== currentHttpPort) {
+      logger.info(`HTTP port changed from ${currentHttpPort} to ${newHttpPort}, restarting server...`);
+      
+      // Send response first before restarting
+      res.json({ 
+        ...result, 
+        message: `${result.message}. Server restarting on port ${newHttpPort}...` 
+      });
+      
+      // Restart server with new port after short delay
+      setTimeout(() => {
+        restartServerOnNewPort(newHttpPort);
+      }, 500);
+      
+      return;
+    }
+    
     res.json(result);
   } catch (error) {
     logger.error('Error updating global configuration:', error);
@@ -360,6 +403,42 @@ app.use((error: Error, req: express.Request, res: express.Response, next: expres
 // MCP HTTP Server using StreamableHTTPServerTransport from the SDK
 const mcpHttpServer = new MCPHttpServer(mcpManager);
 mcpHttpServer.registerWithApp(app);
+
+/**
+ * Restart server on new port
+ */
+async function restartServerOnNewPort(newPort: number): Promise<void> {
+  try {
+    logger.info(`Restarting server on port ${newPort}...`);
+    
+    // Close current server if running
+    if (server) {
+      await new Promise<void>((resolve) => {
+        server!.close(() => {
+          logger.info(`Server stopped on port ${currentPort}`);
+          resolve();
+        });
+      });
+    }
+    
+    // Update current port
+    currentPort = newPort;
+    
+    // Start server on new port
+    server = app.listen(newPort, () => {
+      logger.info(`MCP Bridge Server restarted on port ${newPort}`);
+      logger.info(`Health check: http://localhost:${newPort}/health`);
+      logger.info(`Available servers: http://localhost:${newPort}/mcp/servers`);
+    });
+    
+    server.on('error', (error) => {
+      logger.error(`Failed to start server on port ${newPort}:`, error);
+    });
+    
+  } catch (error) {
+    logger.error(`Failed to restart server on port ${newPort}:`, error);
+  }
+}
 
 // Start the server
 async function startServer() {
@@ -404,7 +483,7 @@ async function startServer() {
     // Execute automatic discovery based on tool discovery rules
     await toolRegistry.applyDiscoveryRules();
     
-    app.listen(port, () => {
+    server = app.listen(port, () => {
       logger.info(`MCP Bridge Server running on port ${port}`);
       logger.info(`Health check: http://localhost:${port}/health`);
       logger.info(`Available servers: http://localhost:${port}/mcp/servers`);

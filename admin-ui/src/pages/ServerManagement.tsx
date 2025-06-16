@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, RefreshCw, Edit, Trash2, Power, AlertCircle, CheckCircle } from 'lucide-react';
+import api from '../services/api';
 
 interface ServerData {
   id: string;
@@ -60,13 +61,13 @@ export default function ServerManagement() {
       setLoading(true);
       
       // Fetch detailed server information (includes status)
-      const serversResponse = await fetch('http://localhost:3000/mcp/servers');
-      const serversData = await serversResponse.json();
+      const serversResponse = await api.get('/mcp/servers');
+      const serversData = serversResponse.data;
       const detailedServers = serversData.servers || [];
 
       // Fetch all server configurations
-      const configResponse = await fetch('http://localhost:3000/mcp/config/servers');
-      const configData = await configResponse.json();
+      const configResponse = await api.get('/mcp/config/servers');
+      const configData = configResponse.data;
       const allServerConfigs = configData.servers || [];
 
       // Create a map of detailed server info by server ID
@@ -95,7 +96,7 @@ export default function ServerManagement() {
           maxRestarts: config.maxRestarts,
           url: config.url, // for HTTP transport
           // Use the actual server status from the detailed info
-          statusInfo: serverInfo?.statusInfo || { 
+          status: serverInfo?.statusInfo || { 
             status: 'disconnected', 
             retryCount: 0,
             maxRetries: 3,
@@ -118,18 +119,12 @@ export default function ServerManagement() {
   const handleAddServer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:3000/mcp/config/servers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          serverId: formData.name.toLowerCase().replace(/\s+/g, '-'),
-          config: formData
-        }),
+      const response = await api.post('/mcp/config/servers', {
+        serverId: formData.name.toLowerCase().replace(/\s+/g, '-'),
+        config: formData
       });
 
-      if (response.ok) {
+      if (response.status === 200) {
         setShowAddForm(false);
         setFormData({ name: '', command: '', args: [], cwd: '', env: {}, transport: 'stdio' });
         setEnvVars([]);
@@ -169,17 +164,11 @@ export default function ServerManagement() {
     if (!editingServer) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/mcp/config/servers/${editingServer}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          config: formData
-        }),
+      const response = await api.put(`/mcp/config/servers/${editingServer}`, {
+        config: formData
       });
 
-      if (response.ok) {
+      if (response.status === 200) {
         setEditingServer(null);
         setShowAddForm(false);
         setFormData({ name: '', command: '', args: [], cwd: '', env: {}, transport: 'stdio' });
@@ -239,11 +228,9 @@ export default function ServerManagement() {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/mcp/config/servers/${serverId}`, {
-        method: 'DELETE',
-      });
+      const response = await api.delete(`/mcp/config/servers/${serverId}`);
 
-      if (response.ok) {
+      if (response.status === 200) {
         fetchServers();
       } else {
         console.error('Failed to remove server');
@@ -255,11 +242,9 @@ export default function ServerManagement() {
 
   const handleRetryServer = async (serverId: string) => {
     try {
-      const response = await fetch(`http://localhost:3000/mcp/servers/${serverId}/retry`, {
-        method: 'POST',
-      });
+      const response = await api.post(`/mcp/servers/${serverId}/retry`);
 
-      if (response.ok) {
+      if (response.status === 200) {
         fetchServers();
       } else {
         console.error('Failed to retry server');

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Server, Wrench, CheckCircle } from 'lucide-react';
 import type { MCPServer } from '../types';
+import api from '../services/api';
 
 interface StatsData {
   totalServers: number;
@@ -17,13 +18,13 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         // Fetch server details
-        const serversResponse = await fetch('http://localhost:3000/mcp/servers');
-        const serversData = await serversResponse.json();
+        const serversResponse = await api.get('/mcp/servers');
+        const serversData = serversResponse.data;
         const serverList = serversData.servers || [];
 
         // Fetch tools count
-        const toolsResponse = await fetch('http://localhost:3000/mcp/tools');
-        const toolsData = await toolsResponse.json();
+        const toolsResponse = await api.get('/mcp/tools');
+        const toolsData = toolsResponse.data;
         const toolCount = toolsData.tools?.length || 0;
 
         setServers(serverList);

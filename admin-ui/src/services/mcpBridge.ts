@@ -96,7 +96,7 @@ export class MCPBridgeService {
   // Global Configuration
   async getGlobalConfig(): Promise<GlobalConfig> {
     const response = await api.get('/mcp/config/global');
-    return response.data;
+    return response.data.config || {};
   }
 
   async updateGlobalConfig(config: Partial<GlobalConfig>): Promise<void> {
