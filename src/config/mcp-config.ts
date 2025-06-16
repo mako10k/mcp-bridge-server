@@ -76,6 +76,7 @@ export const MCPConfigSchema = z.object({
     logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
     maxConcurrentConnections: z.number().default(10),
     requestTimeout: z.number().default(30000),
+    fixInvalidToolSchemas: z.boolean().default(false).describe('Whether to auto-fix invalid tool schemas or reject them'),
   }).optional(),
 });
 
@@ -166,6 +167,7 @@ export function getDefaultConfig(): MCPConfig {
       logLevel: 'info',
       maxConcurrentConnections: 10,
       requestTimeout: 30000,
+      fixInvalidToolSchemas: false,
     },
   };
 }

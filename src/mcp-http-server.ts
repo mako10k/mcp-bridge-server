@@ -241,11 +241,29 @@ export class MCPHttpServer {
           try {
             logger.debug(`Calling tool ${name} from registry`);
             const result = await toolRegistry.callTool(name, args);
+            
+            // Handle the response format properly
+            let responseText: string;
+            if (result && typeof result === 'object' && result.result !== undefined) {
+              // If tool registry returns { result: ... }, use the inner result
+              responseText = typeof result.result === 'string' ? result.result : JSON.stringify(result.result, null, 2);
+            } else {
+              // Otherwise stringify the entire result
+              responseText = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+            }
+            
+            // Log response size for debugging large payloads
+            const responseSize = responseText.length;
+            logger.debug(`Tool ${name} response size: ${responseSize} characters`);
+            if (responseSize > 50000) {
+              logger.warn(`Large response detected for tool ${name}: ${responseSize} characters`);
+            }
+            
             return {
               content: [
                 {
                   type: 'text',
-                  text: JSON.stringify(result, null, 2),
+                  text: responseText,
                 },
               ],
             };

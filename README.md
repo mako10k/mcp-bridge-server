@@ -96,10 +96,20 @@ Create a `mcp-config.json` file in the project root:
   "global": {
     "logLevel": "info",
     "maxConcurrentConnections": 10,
-    "requestTimeout": 30000
+    "requestTimeout": 30000,
+    "fixInvalidToolSchemas": false
   }
 }
 ```
+
+### Global Configuration Options
+
+- **`logLevel`**: Logging level (`debug`, `info`, `warn`, `error`). Default: `info`
+- **`maxConcurrentConnections`**: Maximum number of concurrent MCP server connections. Default: `10`
+- **`requestTimeout`**: Request timeout in milliseconds. Default: `30000`
+- **`fixInvalidToolSchemas`**: Whether to auto-fix invalid tool schemas or reject them. Default: `false`
+  - `false` (strict mode): Tools with invalid schemas are rejected and skipped
+  - `true` (fix mode): Invalid schemas are automatically normalized with default values
 
 ## API Endpoints
 

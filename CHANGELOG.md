@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Tool schema validation and auto-fix functionality**
+  - New global configuration option `fixInvalidToolSchemas` (default: `false`)
+  - Strict mode (default): Tools with invalid schemas are rejected and skipped
+  - Fix mode (optional): Invalid tool schemas are automatically normalized with proper structure
+  - Enhanced error handling for malformed tool schemas from MCP servers
+
 ## [1.4.0] - 2025-06-15
 
 ### Added
