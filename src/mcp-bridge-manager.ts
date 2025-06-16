@@ -933,4 +933,85 @@ export class MCPBridgeManager {
     const updatedConnection = this.connections.get(serverId);
     return updatedConnection ? updatedConnection.connected : false;
   }
+
+  /**
+   * Reload configuration and reconnect servers
+   * @param newConfig New configuration to apply
+   */
+  async reloadConfiguration(newConfig: MCPConfig): Promise<void> {
+    logger.info('Reloading MCP Bridge Manager configuration...');
+    
+    try {
+      // Store old config for comparison
+      const oldConfig = this.config;
+      this.config = newConfig;
+
+      const enabledServers = getEnabledServers(newConfig);
+      const oldServerNames = new Set(oldConfig?.servers.map(s => s.name) || []);
+      const newServerNames = new Set(enabledServers.map(s => s.name));
+
+      // Disconnect servers that are no longer in the config
+      for (const serverId of oldServerNames) {
+        if (!newServerNames.has(serverId)) {
+          logger.info(`Disconnecting removed server: ${serverId}`);
+          const connection = this.connections.get(serverId);
+          if (connection) {
+            try {
+              await connection.transport.close();
+            } catch (error) {
+              logger.error(`Error closing connection to ${serverId}:`, error);
+            }
+            this.connections.delete(serverId);
+            
+            // Clear retry timeout if any
+            const retryTimeout = this.retryTimeouts.get(serverId);
+            if (retryTimeout) {
+              clearTimeout(retryTimeout);
+              this.retryTimeouts.delete(serverId);
+            }
+          }
+        }
+      }
+
+      // Connect to new servers or reconnect modified servers
+      for (const serverConfig of enabledServers) {
+        const existingConnection = this.connections.get(serverConfig.name);
+        const oldServerConfig = oldConfig?.servers.find(s => s.name === serverConfig.name);
+        
+        // Connect new servers or reconnect if configuration changed
+        if (!existingConnection || !oldServerConfig || 
+            JSON.stringify(serverConfig) !== JSON.stringify(oldServerConfig)) {
+          
+          // Disconnect existing connection if any
+          if (existingConnection) {
+            logger.info(`Reconnecting modified server: ${serverConfig.name}`);
+            try {
+              await existingConnection.transport.close();
+            } catch (error) {
+              logger.error(`Error closing existing connection to ${serverConfig.name}:`, error);
+            }
+            this.connections.delete(serverConfig.name);
+            
+            // Clear retry timeout if any
+            const retryTimeout = this.retryTimeouts.get(serverConfig.name);
+            if (retryTimeout) {
+              clearTimeout(retryTimeout);
+              this.retryTimeouts.delete(serverConfig.name);
+            }
+          } else {
+            logger.info(`Connecting new server: ${serverConfig.name}`);
+          }
+          
+          // Connect to the server
+          await this.connectToServer(serverConfig);
+        }
+      }
+
+      logger.info(`Configuration reloaded successfully. Active connections: ${this.connections.size}`);
+      
+    } catch (error) {
+      logger.error('Error reloading configuration:', error);
+      throw new Error(`Failed to reload configuration: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 }

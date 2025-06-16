@@ -25,7 +25,7 @@ const mcpConfig = loadMCPConfig(configPath);
 
 // Initialize MCP Bridge Manager and Tool Registry
 const mcpManager = new MCPBridgeManager();
-const toolRegistry = new BridgeToolRegistry(mcpManager, mcpConfig);
+const toolRegistry = new BridgeToolRegistry(mcpManager, mcpConfig, configPath);
 // Set reference to the tool registry
 mcpManager.setToolRegistry(toolRegistry);
 
@@ -162,6 +162,69 @@ app.get('/mcp/servers/:serverId/resources/:resourceUri', async (req, res) => {
     res.status(500).json({ error: 'Failed to read resource' });
   }
 });
+
+// Configuration management endpoints
+
+// Add server configuration
+app.post('/mcp/config/servers', (async (req, res) => {
+  try {
+    const { serverId, config } = req.body;
+    if (!serverId || !config) {
+      return res.status(400).json({ error: 'serverId and config are required' });
+    }
+    
+    const result = await toolRegistry.handleAddServerConfig({ serverId, config });
+    res.json(result);
+  } catch (error) {
+    logger.error('Error adding server configuration:', error);
+    res.status(500).json({ error: 'Failed to add server configuration' });
+  }
+}) as express.RequestHandler);
+
+// Update server configuration
+app.put('/mcp/config/servers/:serverId', (async (req, res) => {
+  try {
+    const { serverId } = req.params;
+    const { config } = req.body;
+    if (!config) {
+      return res.status(400).json({ error: 'config is required' });
+    }
+    
+    const result = await toolRegistry.handleUpdateServerConfig({ serverId, config });
+    res.json(result);
+  } catch (error) {
+    logger.error(`Error updating server configuration for ${req.params.serverId}:`, error);
+    res.status(500).json({ error: 'Failed to update server configuration' });
+  }
+}) as express.RequestHandler);
+
+// Remove server configuration
+app.delete('/mcp/config/servers/:serverId', (async (req, res) => {
+  try {
+    const { serverId } = req.params;
+    const result = await toolRegistry.handleRemoveServerConfig({ serverId });
+    res.json(result);
+  } catch (error) {
+    logger.error(`Error removing server configuration for ${req.params.serverId}:`, error);
+    res.status(500).json({ error: 'Failed to remove server configuration' });
+  }
+}) as express.RequestHandler);
+
+// Update global configuration
+app.put('/mcp/config/global', (async (req, res) => {
+  try {
+    const { config } = req.body;
+    if (!config) {
+      return res.status(400).json({ error: 'config is required' });
+    }
+    
+    const result = await toolRegistry.handleUpdateGlobalConfig({ config });
+    res.json(result);
+  } catch (error) {
+    logger.error('Error updating global configuration:', error);
+    res.status(500).json({ error: 'Failed to update global configuration' });
+  }
+}) as express.RequestHandler);
 
 // Error handling middleware
 app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

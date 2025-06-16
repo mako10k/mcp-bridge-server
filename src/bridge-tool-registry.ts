@@ -1,6 +1,7 @@
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
 import { logger } from './utils/logger.js';
 import { MCPConfig } from './config/mcp-config.js';
+import { DynamicConfigManager } from './config/dynamic-config-manager.js';
 
 // BridgeToolRegistry Interface
 export interface IBridgeToolRegistry {
@@ -65,13 +66,15 @@ export interface ToolDefinition {
 export class BridgeToolRegistry implements IBridgeToolRegistry {
   private mcpManager: MCPBridgeManager;
   private config: MCPConfig;
+  private configManager: DynamicConfigManager;
   private toolAliases: Map<string, AliasedToolInfo> = new Map(); // Map to manage tool aliases
   private standardTools: ToolDefinition[] = [];
   private toolDiscoveryRules: ToolDiscoveryRule[] = []; // Tool discovery rules
 
-  constructor(mcpManager: MCPBridgeManager, config: MCPConfig) {
+  constructor(mcpManager: MCPBridgeManager, config: MCPConfig, configPath?: string) {
     this.mcpManager = mcpManager;
     this.config = config;
+    this.configManager = new DynamicConfigManager(configPath || './mcp-config.json', config);
     this.initializeStandardTools();
     logger.info('Bridge Tool Registry initialized');
   }
@@ -397,6 +400,148 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
           required: ['serverId'],
         },
       },
+      {
+        name: 'add_server_config',
+        description: 'Add a new MCP server configuration',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            serverId: {
+              type: 'string',
+              description: 'Unique server ID',
+            },
+            config: {
+              type: 'object',
+              description: 'Server configuration object',
+              properties: {
+                name: {
+                  type: 'string',
+                  description: 'Human-readable server name',
+                },
+                command: {
+                  type: 'string',
+                  description: 'Command to execute',
+                },
+                args: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Command arguments',
+                },
+                cwd: {
+                  type: 'string',
+                  description: 'Working directory (optional)',
+                },
+                env: {
+                  type: 'object',
+                  description: 'Environment variables (optional)',
+                },
+              },
+              required: ['name', 'command', 'args'],
+            },
+          },
+          required: ['serverId', 'config'],
+        },
+      },
+      {
+        name: 'update_server_config',
+        description: 'Update an existing MCP server configuration',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            serverId: {
+              type: 'string',
+              description: 'Server ID to update',
+            },
+            config: {
+              type: 'object',
+              description: 'Updated server configuration object',
+              properties: {
+                name: {
+                  type: 'string',
+                  description: 'Human-readable server name',
+                },
+                command: {
+                  type: 'string',
+                  description: 'Command to execute',
+                },
+                args: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Command arguments',
+                },
+                cwd: {
+                  type: 'string',
+                  description: 'Working directory (optional)',
+                },
+                env: {
+                  type: 'object',
+                  description: 'Environment variables (optional)',
+                },
+              },
+            },
+          },
+          required: ['serverId', 'config'],
+        },
+      },
+      {
+        name: 'remove_server_config',
+        description: 'Remove an MCP server configuration',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            serverId: {
+              type: 'string',
+              description: 'Server ID to remove',
+            },
+          },
+          required: ['serverId'],
+        },
+      },
+      {
+        name: 'update_global_config',
+        description: 'Update global configuration settings',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            config: {
+              type: 'object',
+              description: 'Global configuration updates',
+              properties: {
+                httpPort: {
+                  type: 'number',
+                  description: 'HTTP server port',
+                },
+                hostName: {
+                  type: 'string',
+                  description: 'Server hostname',
+                },
+                logLevel: {
+                  type: 'string',
+                  enum: ['error', 'warn', 'info', 'debug'],
+                  description: 'Logging level',
+                },
+                maxRetries: {
+                  type: 'number',
+                  description: 'Maximum retry attempts for failed servers',
+                },
+                retryInterval: {
+                  type: 'number',
+                  description: 'Base retry interval in milliseconds',
+                },
+                fixInvalidToolSchemas: {
+                  type: 'boolean',
+                  description: 'Whether to auto-fix invalid tool schemas',
+                },
+                enableToolDiscovery: {
+                  type: 'boolean',
+                  description: 'Enable auto tool discovery',
+                },
+              },
+            },
+          },
+          required: ['config'],
+        },
+      },
     ];
   }
 
@@ -556,6 +701,18 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
             status
           };
 
+        case 'add_server_config':
+          return await this.handleAddServerConfig(args);
+
+        case 'update_server_config':
+          return await this.handleUpdateServerConfig(args);
+
+        case 'remove_server_config':
+          return await this.handleRemoveServerConfig(args);
+
+        case 'update_global_config':
+          return await this.handleUpdateGlobalConfig(args);
+
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
@@ -622,6 +779,128 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
     }));
     
     return { tools: aliasedTools };
+  }
+
+  /**
+   * Add server configuration handler
+   */
+  public async handleAddServerConfig(args: any): Promise<any> {
+    if (!args.serverId || !args.config) {
+      throw new Error('serverId and config are required');
+    }
+
+    try {
+      // Convert serverId to server name and merge with config
+      const serverConfig = {
+        name: args.serverId,
+        ...args.config
+      };
+      
+      const result = await this.configManager.addServer(serverConfig);
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      
+      // Notify MCPManager to reload configuration and reconnect
+      if (result.config) {
+        await this.mcpManager.reloadConfiguration(result.config);
+      }
+      
+      return {
+        success: true,
+        message: result.message
+      };
+    } catch (error) {
+      logger.error(`Error adding server config:`, error);
+      throw new Error(`Failed to add server config: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Update server configuration handler
+   */
+  public async handleUpdateServerConfig(args: any): Promise<any> {
+    if (!args.serverId || !args.config) {
+      throw new Error('serverId and config are required');
+    }
+
+    try {
+      const result = await this.configManager.updateServer(args.serverId, args.config);
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      
+      // Notify MCPManager to reload configuration and reconnect
+      if (result.config) {
+        await this.mcpManager.reloadConfiguration(result.config);
+      }
+      
+      return {
+        success: true,
+        message: result.message
+      };
+    } catch (error) {
+      logger.error(`Error updating server config:`, error);
+      throw new Error(`Failed to update server config: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Remove server configuration handler
+   */
+  public async handleRemoveServerConfig(args: any): Promise<any> {
+    if (!args.serverId) {
+      throw new Error('serverId is required');
+    }
+
+    try {
+      const result = await this.configManager.removeServer(args.serverId);
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      
+      // Notify MCPManager to reload configuration and reconnect
+      if (result.config) {
+        await this.mcpManager.reloadConfiguration(result.config);
+      }
+      
+      return {
+        success: true,
+        message: result.message
+      };
+    } catch (error) {
+      logger.error(`Error removing server config:`, error);
+      throw new Error(`Failed to remove server config: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Update global configuration handler
+   */
+  public async handleUpdateGlobalConfig(args: any): Promise<any> {
+    if (!args.config) {
+      throw new Error('config is required');
+    }
+
+    try {
+      const result = await this.configManager.updateGlobalSettings(args.config);
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      
+      // Notify MCPManager to reload configuration and reconnect
+      if (result.config) {
+        await this.mcpManager.reloadConfiguration(result.config);
+      }
+      
+      return {
+        success: true,
+        message: result.message
+      };
+    } catch (error) {
+      logger.error(`Error updating global config:`, error);
+      throw new Error(`Failed to update global config: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   
   /**
