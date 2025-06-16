@@ -923,4 +923,12 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   private registerAliasedToolHandler(aliasName: string, toolInfo: AliasedToolInfo): void {
     logger.info(`Registered tool alias handler for: ${aliasName} (${toolInfo.namespacedName})`);
   }
+
+  /**
+   * Get the configuration manager instance
+   * @returns DynamicConfigManager instance
+   */
+  getConfigManager(): DynamicConfigManager {
+    return this.configManager;
+  }
 }

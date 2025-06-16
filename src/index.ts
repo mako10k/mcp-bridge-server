@@ -165,6 +165,37 @@ app.get('/mcp/servers/:serverId/resources/:resourceUri', async (req, res) => {
 
 // Configuration management endpoints
 
+// Get all server configurations
+app.get('/mcp/config/servers', (async (req, res) => {
+  try {
+    const configManager = toolRegistry.getConfigManager();
+    const currentConfig = configManager.getCurrentConfig();
+    res.json({ servers: currentConfig.servers || [] });
+  } catch (error) {
+    logger.error('Error getting server configurations:', error);
+    res.status(500).json({ error: 'Failed to get server configurations' });
+  }
+}) as express.RequestHandler);
+
+// Get specific server configuration
+app.get('/mcp/config/servers/:serverId', (async (req, res) => {
+  try {
+    const { serverId } = req.params;
+    const configManager = toolRegistry.getConfigManager();
+    const currentConfig = configManager.getCurrentConfig();
+    const server = currentConfig.servers?.find((s: any) => s.name === serverId);
+    
+    if (!server) {
+      return res.status(404).json({ error: 'Server configuration not found' });
+    }
+    
+    res.json({ server });
+  } catch (error) {
+    logger.error(`Error getting server configuration for ${req.params.serverId}:`, error);
+    res.status(500).json({ error: 'Failed to get server configuration' });
+  }
+}) as express.RequestHandler);
+
 // Add server configuration
 app.post('/mcp/config/servers', (async (req, res) => {
   try {
