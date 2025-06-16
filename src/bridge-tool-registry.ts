@@ -1,5 +1,6 @@
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
 import { logger } from './utils/logger.js';
+import { MCPConfig } from './config/mcp-config.js';
 
 // BridgeToolRegistry Interface
 export interface IBridgeToolRegistry {
@@ -63,12 +64,14 @@ export interface ToolDefinition {
  */
 export class BridgeToolRegistry implements IBridgeToolRegistry {
   private mcpManager: MCPBridgeManager;
+  private config: MCPConfig;
   private toolAliases: Map<string, AliasedToolInfo> = new Map(); // Map to manage tool aliases
   private standardTools: ToolDefinition[] = [];
   private toolDiscoveryRules: ToolDiscoveryRule[] = []; // Tool discovery rules
 
-  constructor(mcpManager: MCPBridgeManager) {
+  constructor(mcpManager: MCPBridgeManager, config: MCPConfig) {
     this.mcpManager = mcpManager;
+    this.config = config;
     this.initializeStandardTools();
     logger.info('Bridge Tool Registry initialized');
   }

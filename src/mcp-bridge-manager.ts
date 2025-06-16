@@ -349,17 +349,76 @@ export class MCPBridgeManager {
   }
 
   /**
+   * Normalize tool schema if config allows, otherwise validate it
+   * @param tool Tool information
+   * @param serverId Server ID for logging
+   * @returns Normalized schema or throws error if strict mode
+   */
+  private normalizeOrValidateToolSchema(tool: any, serverId: string): any {
+    let inputSchema = tool.input_schema || tool.inputSchema;
+    
+    // Check if schema is invalid
+    const isInvalid = !inputSchema || typeof inputSchema !== 'object' || 
+                     !inputSchema.type || !inputSchema.properties;
+    
+    if (isInvalid) {
+      const fixInvalidSchemas = this.config?.global?.fixInvalidToolSchemas ?? false;
+      
+      if (!fixInvalidSchemas) {
+        // Strict mode: reject invalid schemas
+        const errorMsg = `Invalid tool schema for ${tool.name} from server ${serverId}: missing required fields (type, properties, or schema is not an object)`;
+        logger.error(errorMsg);
+        throw new Error(errorMsg);
+      } else {
+        // Fix mode: normalize the schema
+        logger.warn(`Auto-fixing invalid schema for tool ${tool.name} from server ${serverId}`);
+        if (!inputSchema || typeof inputSchema !== 'object') {
+          inputSchema = { type: 'object', properties: {}, required: [] };
+        } else {
+          // Ensure type is set to 'object'
+          if (!inputSchema.type) {
+            inputSchema.type = 'object';
+          }
+          // Ensure properties exists
+          if (!inputSchema.properties) {
+            inputSchema.properties = {};
+          }
+          // Ensure required array exists
+          if (!inputSchema.required) {
+            inputSchema.required = [];
+          }
+        }
+      }
+    }
+    
+    return inputSchema;
+  }
+
+  /**
    * Get tool information from a specific server
    * @param serverId Server ID
    * @returns Array of tool information
    */
   async getServerTools(serverId: string): Promise<{ name: string, description: string, inputSchema: any }[]> {
     const tools = await this.listTools(serverId);
-    return tools.map((tool: any) => ({
-      name: tool.name,
-      description: tool.description || '',
-      inputSchema: tool.input_schema || {}
-    }));
+    const validTools: { name: string, description: string, inputSchema: any }[] = [];
+    
+    for (const tool of tools) {
+      try {
+        const inputSchema = this.normalizeOrValidateToolSchema(tool, serverId);
+        validTools.push({
+          name: tool.name,
+          description: tool.description || '',
+          inputSchema
+        });
+      } catch (error) {
+        // In strict mode, skip invalid tools
+        logger.error(`Skipping tool ${tool.name} from server ${serverId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        continue;
+      }
+    }
+    
+    return validTools;
   }
 
   async callTool(serverId: string, toolName: string, arguments_: Record<string, any>): Promise<any> {
@@ -471,13 +530,20 @@ export class MCPBridgeManager {
         
         const response = await connection.client.listTools();
         for (const tool of response.tools) {
-          allTools.push({
-            name: tool.name,
-            namespacedName: `${serverId}:${tool.name}`,
-            serverId,
-            description: tool.description,
-            inputSchema: tool.inputSchema
-          });
+          try {
+            const inputSchema = this.normalizeOrValidateToolSchema(tool, serverId);
+            allTools.push({
+              name: tool.name,
+              namespacedName: `${serverId}:${tool.name}`,
+              serverId,
+              description: tool.description,
+              inputSchema
+            });
+          } catch (error) {
+            // In strict mode, skip invalid tools
+            logger.error(`Skipping tool ${tool.name} from server ${serverId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            continue;
+          }
         }
       } catch (error) {
         logger.error(`Failed to get tools from server ${serverId}:`, error);
