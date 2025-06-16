@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import ServerManagement from './pages/ServerManagement';
 import ToolManagement from './pages/ToolManagement';
 import GlobalSettings from './pages/GlobalSettings';
+import ToolDiscoverySettings from './pages/ToolDiscoverySettings';
 import LogViewer from './pages/LogViewer';
 
 const queryClient = new QueryClient({
@@ -27,6 +28,7 @@ function App() {
             <Route path="/servers" element={<ServerManagement />} />
             <Route path="/tools" element={<ToolManagement />} />
             <Route path="/settings" element={<GlobalSettings />} />
+            <Route path="/discovery" element={<ToolDiscoverySettings />} />
             <Route path="/logs" element={<LogViewer />} />
           </Routes>
         </Layout>

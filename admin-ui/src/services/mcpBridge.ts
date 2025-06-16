@@ -6,7 +6,8 @@ import type {
   ToolAlias, 
   GlobalConfig, 
   ServerStats,
-  LogEntry 
+  LogEntry,
+  ToolDiscoveryRule
 } from '../types';
 
 export class MCPBridgeService {
@@ -101,6 +102,16 @@ export class MCPBridgeService {
 
   async updateGlobalConfig(config: Partial<GlobalConfig>): Promise<void> {
     await api.put('/mcp/config/global', { config });
+  }
+
+  // Tool Discovery Rules
+  async getToolDiscoveryRules(): Promise<ToolDiscoveryRule[]> {
+    const response = await api.get('/mcp/config/discovery-rules');
+    return response.data.rules || [];
+  }
+
+  async updateToolDiscoveryRules(rules: ToolDiscoveryRule[]): Promise<void> {
+    await api.put('/mcp/config/discovery-rules', { rules });
   }
 
   // Dashboard Stats

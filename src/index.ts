@@ -394,6 +394,68 @@ app.put('/mcp/config/global', (async (req, res) => {
   }
 }) as express.RequestHandler);
 
+// Get tool discovery rules
+app.get('/mcp/config/discovery-rules', (async (req, res) => {
+  try {
+    const configManager = toolRegistry.getConfigManager();
+    const currentConfig = configManager.getCurrentConfig();
+    res.json({ 
+      rules: currentConfig.toolDiscoveryRules || currentConfig.registrationPatterns || [] 
+    });
+  } catch (error) {
+    logger.error('Error getting tool discovery rules:', error);
+    res.status(500).json({ error: 'Failed to get tool discovery rules' });
+  }
+}) as express.RequestHandler);
+
+// Update tool discovery rules
+app.put('/mcp/config/discovery-rules', (async (req, res) => {
+  try {
+    const { rules } = req.body;
+    if (!Array.isArray(rules)) {
+      return res.status(400).json({ error: 'rules must be an array' });
+    }
+    
+    // Validate each rule
+    const validatedRules = rules.map(rule => {
+      if (!rule.serverPattern || !rule.toolPattern) {
+        throw new Error('Each rule must have serverPattern and toolPattern');
+      }
+      return {
+        serverPattern: rule.serverPattern,
+        toolPattern: rule.toolPattern,
+        exclude: Boolean(rule.exclude)
+      };
+    });
+    
+    const configManager = toolRegistry.getConfigManager();
+    
+    // Update discovery rules
+    const result = await configManager.updateToolDiscoveryRules(validatedRules);
+    if (!result.success) {
+      return res.status(500).json({ error: result.message });
+    }
+    
+    // Notify MCP Manager of configuration changes
+    const updatedConfig = configManager.getCurrentConfig();
+    await mcpManager.reloadConfiguration(updatedConfig);
+    
+    // Apply new discovery rules
+    toolRegistry.setDiscoveryRules(validatedRules);
+    await toolRegistry.applyDiscoveryRules();
+    
+    logger.info(`Updated tool discovery rules: ${validatedRules.length} rules`);
+    res.json({ 
+      success: true, 
+      message: 'Tool discovery rules updated successfully',
+      rules: validatedRules
+    });
+  } catch (error) {
+    logger.error('Error updating tool discovery rules:', error);
+    res.status(500).json({ error: 'Failed to update tool discovery rules' });
+  }
+}) as express.RequestHandler);
+
 // Error handling middleware
 app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Unhandled error:', error);

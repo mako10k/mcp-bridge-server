@@ -91,6 +91,30 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
   }
 
   /**
+   * Clear all auto-discovery tool aliases
+   * This is called before reapplying discovery rules to ensure old aliases are removed
+   */
+  private clearAutoDiscoveryAliases(): void {
+    const aliasesToRemove: string[] = [];
+    
+    // Find all auto-discovery aliases
+    for (const [aliasName, aliasInfo] of this.toolAliases.entries()) {
+      if (aliasInfo.source === 'auto-discovery') {
+        aliasesToRemove.push(aliasName);
+      }
+    }
+    
+    // Remove them
+    for (const aliasName of aliasesToRemove) {
+      this.toolAliases.delete(aliasName);
+    }
+    
+    if (aliasesToRemove.length > 0) {
+      logger.info(`Cleared ${aliasesToRemove.length} auto-discovery tool aliases`);
+    }
+  }
+
+  /**
    * Apply configured tool discovery rules and automatically register matching tools
    */
   async applyDiscoveryRules(): Promise<void> {
@@ -100,6 +124,9 @@ export class BridgeToolRegistry implements IBridgeToolRegistry {
     }
 
     try {
+      // First, clear all existing auto-discovery aliases
+      this.clearAutoDiscoveryAliases();
+      
       logger.info('Applying tool registration patterns...');
       const allServers = this.mcpManager.getAvailableServers();
       const processedTools: Set<string> = new Set(); // Set to track processed tools

@@ -213,20 +213,6 @@ export default function GlobalSettings() {
           </button>
         </div>
       </div>
-
-      {/* Tool Discovery Rules Section */}
-      <div className="mt-8 bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Tool Discovery Rules</h2>
-        </div>
-        <div className="p-6">
-          <div className="text-center py-8 text-gray-500">
-            <Settings className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-            <p>Tool discovery rules configuration</p>
-            <p className="text-sm">This section will be implemented in a future update</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

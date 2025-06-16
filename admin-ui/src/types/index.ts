@@ -58,6 +58,12 @@ export interface ToolAlias {
   source: 'explicit' | 'auto-discovery';
 }
 
+export interface ToolDiscoveryRule {
+  serverPattern: string;
+  toolPattern: string;
+  exclude: boolean;
+}
+
 export interface GlobalConfig {
   httpPort?: number;
   hostName?: string;

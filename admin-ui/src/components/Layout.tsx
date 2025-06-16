@@ -7,7 +7,8 @@ import {
   Settings, 
   FileText,
   Menu,
-  X 
+  X,
+  Search 
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -19,6 +20,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Servers', href: '/servers', icon: Server },
   { name: 'Tools', href: '/tools', icon: Wrench },
+  { name: 'Tool Discovery', href: '/discovery', icon: Search },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Logs', href: '/logs', icon: FileText },
 ];
