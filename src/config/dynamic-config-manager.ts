@@ -210,6 +210,42 @@ export class DynamicConfigManager {
   }
 
   /**
+   * Update tool discovery rules
+   */
+  async updateToolDiscoveryRules(rules: Array<{ serverPattern: string; toolPattern: string; exclude: boolean }>): Promise<ConfigUpdateResult> {
+    try {
+      // Update tool discovery rules
+      const newConfig = {
+        ...this.currentConfig,
+        toolDiscoveryRules: rules,
+        // Remove legacy field if it exists
+        registrationPatterns: undefined
+      };
+
+      // Validate configuration
+      const validatedConfig = MCPConfigSchema.parse(newConfig);
+
+      // Save to file
+      await this.saveConfig(validatedConfig);
+
+      logger.info(`Updated tool discovery rules: ${rules.length} rules`);
+      return {
+        success: true,
+        message: 'Tool discovery rules updated successfully',
+        config: validatedConfig,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error(`Failed to update tool discovery rules:`, error);
+      return {
+        success: false,
+        message: `Failed to update tool discovery rules: ${errorMessage}`,
+        errors: [errorMessage],
+      };
+    }
+  }
+
+  /**
    * Reload configuration from file
    */
   async reloadConfig(): Promise<ConfigUpdateResult> {
@@ -262,6 +298,7 @@ export class DynamicConfigManager {
   getGlobalSettings(): NonNullable<MCPConfig['global']> {
     return {
       logLevel: this.currentConfig.global?.logLevel || 'info',
+      httpPort: this.currentConfig.global?.httpPort || 3000,
       maxConcurrentConnections: this.currentConfig.global?.maxConcurrentConnections || 10,
       requestTimeout: this.currentConfig.global?.requestTimeout || 30000,
       fixInvalidToolSchemas: this.currentConfig.global?.fixInvalidToolSchemas || false,

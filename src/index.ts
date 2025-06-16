@@ -8,20 +8,25 @@ import { MCPBridgeManager } from './mcp-bridge-manager.js';
 import { BridgeToolRegistry } from './bridge-tool-registry.js';
 import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
+import { Server } from 'http';
+
+// Server instance reference for restart functionality
+let server: Server | null = null;
+let currentPort: number = 3000;
 
 // Get configuration file path from command line arguments
 const configPath = process.argv[2] || './mcp-config.json';
 logger.info(`Using configuration file: ${configPath}`);
 
 const app = express();
-const port = process.env.PORT || 3000;
+// Load MCP configuration first to get port setting
+const mcpConfig = loadMCPConfig(configPath);
+const port = Number(process.env.PORT || mcpConfig.global?.httpPort || 3000);
+currentPort = port;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Load MCP configuration
-const mcpConfig = loadMCPConfig(configPath);
 
 // Initialize MCP Bridge Manager and Tool Registry
 const mcpManager = new MCPBridgeManager();
@@ -34,10 +39,24 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Get server information (port, status, etc.)
+app.get('/mcp/server-info', (req, res) => {
+  try {
+    res.json({ 
+      port: currentPort,
+      status: 'running',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Error getting server info:', error);
+    res.status(500).json({ error: 'Failed to get server info' });
+  }
+});
+
 // Get available MCP servers (with status information)
 app.get('/mcp/servers', async (req, res) => {
   try {
-    const servers = mcpManager.getAvailableServers();
+    const servers = mcpManager.getDetailedServerInfo();
     res.json({ servers });
   } catch (error) {
     logger.error('Error getting MCP servers:', error);
@@ -139,6 +158,88 @@ app.post('/mcp/servers/:serverId/tools/call', async (req, res) => {
 // Old API '/mcp/tools/call' has been removed - deprecated since v1.2.1
 // Use the '/mcp/servers/:serverId/tools/call' endpoint or directly registered tools instead
 
+// Tool alias management endpoints
+
+// List all tool aliases
+app.get('/mcp/tool-aliases', (async (req, res) => {
+  try {
+    const result = await toolRegistry.handleListAliasedTools();
+    res.json(result);
+  } catch (error) {
+    logger.error('Error listing tool aliases:', error);
+    res.status(500).json({ error: 'Failed to list tool aliases' });
+  }
+}) as express.RequestHandler);
+
+// Create a tool alias
+app.post('/mcp/tool-aliases', (async (req, res) => {
+  try {
+    const { serverId, toolName, newName } = req.body;
+    if (!serverId || !toolName) {
+      return res.status(400).json({ error: 'serverId and toolName are required' });
+    }
+    
+    const result = await toolRegistry.handleCreateToolAlias({ serverId, toolName, newName });
+    res.json(result);
+  } catch (error) {
+    logger.error('Error creating tool alias:', error);
+    res.status(500).json({ error: 'Failed to create tool alias' });
+  }
+}) as express.RequestHandler);
+
+// Remove a tool alias
+app.delete('/mcp/tool-aliases/:aliasName', (async (req, res) => {
+  try {
+    const { aliasName } = req.params;
+    const result = await toolRegistry.handleRemoveToolAlias({ toolName: aliasName });
+    res.json(result);
+  } catch (error) {
+    logger.error(`Error removing tool alias ${req.params.aliasName}:`, error);
+    res.status(500).json({ error: 'Failed to remove tool alias' });
+  }
+}) as express.RequestHandler);
+
+// Get tool aliases by source (explicit or auto-discovery)
+app.get('/mcp/tool-aliases/explicit', (async (req, res) => {
+  try {
+    const result = await toolRegistry.handleListAliasedTools();
+    const explicitTools = result.tools.filter((tool: any) => tool.source === 'explicit');
+    res.json({ tools: explicitTools });
+  } catch (error) {
+    logger.error('Error listing explicit tool aliases:', error);
+    res.status(500).json({ error: 'Failed to list explicit tool aliases' });
+  }
+}) as express.RequestHandler);
+
+app.get('/mcp/tool-aliases/auto-discovery', (async (req, res) => {
+  try {
+    const result = await toolRegistry.handleListAliasedTools();
+    const autoDiscoveryTools = result.tools.filter((tool: any) => tool.source === 'auto-discovery');
+    res.json({ tools: autoDiscoveryTools });
+  } catch (error) {
+    logger.error('Error listing auto-discovery tool aliases:', error);
+    res.status(500).json({ error: 'Failed to list auto-discovery tool aliases' });
+  }
+}) as express.RequestHandler);
+
+// Update tool alias name (for explicit aliases only)
+app.put('/mcp/tool-aliases/:aliasName', (async (req, res) => {
+  try {
+    const { aliasName } = req.params;
+    const { newName } = req.body;
+    
+    if (!newName) {
+      return res.status(400).json({ error: 'newName is required' });
+    }
+    
+    const result = await toolRegistry.handleUpdateToolAlias({ oldName: aliasName, newName });
+    res.json(result);
+  } catch (error) {
+    logger.error(`Error updating tool alias ${req.params.aliasName}:`, error);
+    res.status(500).json({ error: 'Failed to update tool alias' });
+  }
+}) as express.RequestHandler);
+
 // List resources from a specific MCP server
 app.get('/mcp/servers/:serverId/resources', async (req, res) => {
   try {
@@ -164,6 +265,37 @@ app.get('/mcp/servers/:serverId/resources/:resourceUri', async (req, res) => {
 });
 
 // Configuration management endpoints
+
+// Get all server configurations
+app.get('/mcp/config/servers', (async (req, res) => {
+  try {
+    const configManager = toolRegistry.getConfigManager();
+    const currentConfig = configManager.getCurrentConfig();
+    res.json({ servers: currentConfig.servers || [] });
+  } catch (error) {
+    logger.error('Error getting server configurations:', error);
+    res.status(500).json({ error: 'Failed to get server configurations' });
+  }
+}) as express.RequestHandler);
+
+// Get specific server configuration
+app.get('/mcp/config/servers/:serverId', (async (req, res) => {
+  try {
+    const { serverId } = req.params;
+    const configManager = toolRegistry.getConfigManager();
+    const currentConfig = configManager.getCurrentConfig();
+    const server = currentConfig.servers?.find((s: any) => s.name === serverId);
+    
+    if (!server) {
+      return res.status(404).json({ error: 'Server configuration not found' });
+    }
+    
+    res.json({ server });
+  } catch (error) {
+    logger.error(`Error getting server configuration for ${req.params.serverId}:`, error);
+    res.status(500).json({ error: 'Failed to get server configuration' });
+  }
+}) as express.RequestHandler);
 
 // Add server configuration
 app.post('/mcp/config/servers', (async (req, res) => {
@@ -210,6 +342,18 @@ app.delete('/mcp/config/servers/:serverId', (async (req, res) => {
   }
 }) as express.RequestHandler);
 
+// Get global configuration
+app.get('/mcp/config/global', (async (req, res) => {
+  try {
+    const configManager = toolRegistry.getConfigManager();
+    const currentConfig = configManager.getCurrentConfig();
+    res.json({ config: currentConfig.global || {} });
+  } catch (error) {
+    logger.error('Error getting global configuration:', error);
+    res.status(500).json({ error: 'Failed to get global configuration' });
+  }
+}) as express.RequestHandler);
+
 // Update global configuration
 app.put('/mcp/config/global', (async (req, res) => {
   try {
@@ -218,11 +362,97 @@ app.put('/mcp/config/global', (async (req, res) => {
       return res.status(400).json({ error: 'config is required' });
     }
     
+    // Check if httpPort is being changed
+    const currentConfig = toolRegistry.getConfigManager().getCurrentConfig();
+    const currentHttpPort = currentConfig.global?.httpPort || 3000;
+    const newHttpPort = config.httpPort;
+    
     const result = await toolRegistry.handleUpdateGlobalConfig({ config });
+    
+    // If httpPort changed and update was successful, restart server on new port
+    if (result.success && newHttpPort && newHttpPort !== currentHttpPort) {
+      logger.info(`HTTP port changed from ${currentHttpPort} to ${newHttpPort}, restarting server...`);
+      
+      // Send response first before restarting
+      res.json({ 
+        ...result, 
+        message: `${result.message}. Server restarting on port ${newHttpPort}...` 
+      });
+      
+      // Restart server with new port after short delay
+      setTimeout(() => {
+        restartServerOnNewPort(newHttpPort);
+      }, 500);
+      
+      return;
+    }
+    
     res.json(result);
   } catch (error) {
     logger.error('Error updating global configuration:', error);
     res.status(500).json({ error: 'Failed to update global configuration' });
+  }
+}) as express.RequestHandler);
+
+// Get tool discovery rules
+app.get('/mcp/config/discovery-rules', (async (req, res) => {
+  try {
+    const configManager = toolRegistry.getConfigManager();
+    const currentConfig = configManager.getCurrentConfig();
+    res.json({ 
+      rules: currentConfig.toolDiscoveryRules || currentConfig.registrationPatterns || [] 
+    });
+  } catch (error) {
+    logger.error('Error getting tool discovery rules:', error);
+    res.status(500).json({ error: 'Failed to get tool discovery rules' });
+  }
+}) as express.RequestHandler);
+
+// Update tool discovery rules
+app.put('/mcp/config/discovery-rules', (async (req, res) => {
+  try {
+    const { rules } = req.body;
+    if (!Array.isArray(rules)) {
+      return res.status(400).json({ error: 'rules must be an array' });
+    }
+    
+    // Validate each rule
+    const validatedRules = rules.map(rule => {
+      if (!rule.serverPattern || !rule.toolPattern) {
+        throw new Error('Each rule must have serverPattern and toolPattern');
+      }
+      return {
+        serverPattern: rule.serverPattern,
+        toolPattern: rule.toolPattern,
+        exclude: Boolean(rule.exclude)
+      };
+    });
+    
+    const configManager = toolRegistry.getConfigManager();
+    
+    // Update discovery rules
+    const result = await configManager.updateToolDiscoveryRules(validatedRules);
+    if (!result.success) {
+      return res.status(500).json({ error: result.message });
+    }
+    
+    // Notify MCP Manager of configuration changes
+    const updatedConfig = configManager.getCurrentConfig();
+    await mcpManager.reloadConfiguration(updatedConfig);
+    
+    // Apply new discovery rules
+    toolRegistry.setDiscoveryRules(validatedRules);
+    await toolRegistry.applyDiscoveryRules();
+    
+    logger.info(`Updated tool discovery rules: ${validatedRules.length} rules`);
+    res.json({ 
+      success: true, 
+      message: 'Tool discovery rules updated successfully',
+      rules: validatedRules
+    });
+  } catch (error) {
+    logger.error('Error updating tool discovery rules:', error);
+    res.status(500).json({ error: 'Failed to update tool discovery rules' });
   }
 }) as express.RequestHandler);
 
@@ -235,6 +465,42 @@ app.use((error: Error, req: express.Request, res: express.Response, next: expres
 // MCP HTTP Server using StreamableHTTPServerTransport from the SDK
 const mcpHttpServer = new MCPHttpServer(mcpManager);
 mcpHttpServer.registerWithApp(app);
+
+/**
+ * Restart server on new port
+ */
+async function restartServerOnNewPort(newPort: number): Promise<void> {
+  try {
+    logger.info(`Restarting server on port ${newPort}...`);
+    
+    // Close current server if running
+    if (server) {
+      await new Promise<void>((resolve) => {
+        server!.close(() => {
+          logger.info(`Server stopped on port ${currentPort}`);
+          resolve();
+        });
+      });
+    }
+    
+    // Update current port
+    currentPort = newPort;
+    
+    // Start server on new port (localhost only for security)
+    server = app.listen(newPort, '127.0.0.1', () => {
+      logger.info(`MCP Bridge Server restarted on port ${newPort} (localhost only)`);
+      logger.info(`Health check: http://localhost:${newPort}/health`);
+      logger.info(`Available servers: http://localhost:${newPort}/mcp/servers`);
+    });
+    
+    server.on('error', (error) => {
+      logger.error(`Failed to start server on port ${newPort}:`, error);
+    });
+    
+  } catch (error) {
+    logger.error(`Failed to restart server on port ${newPort}:`, error);
+  }
+}
 
 // Start the server
 async function startServer() {
@@ -279,8 +545,8 @@ async function startServer() {
     // Execute automatic discovery based on tool discovery rules
     await toolRegistry.applyDiscoveryRules();
     
-    app.listen(port, () => {
-      logger.info(`MCP Bridge Server running on port ${port}`);
+    server = app.listen(port, '127.0.0.1', () => {
+      logger.info(`MCP Bridge Server running on port ${port} (localhost only)`);
       logger.info(`Health check: http://localhost:${port}/health`);
       logger.info(`Available servers: http://localhost:${port}/mcp/servers`);
     });

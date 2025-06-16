@@ -20,7 +20,7 @@ docker build -t mcp-bridge:latest .
 
 # Tag for DockerHub (replace 'mako10k' with your DockerHub username)
 docker tag mcp-bridge:latest mako10k/mcp-bridge:latest
-docker tag mcp-bridge:latest mako10k/mcp-bridge:v1.1.0
+docker tag mcp-bridge:latest mako10k/mcp-bridge:v1.4.0
 
 # Verify tags
 docker images | grep mcp-bridge
@@ -32,7 +32,7 @@ docker images | grep mcp-bridge
 docker push mako10k/mcp-bridge:latest
 
 # Push version tag
-docker push mako10k/mcp-bridge:v1.1.0
+docker push mako10k/mcp-bridge:v1.4.0
 ```
 
 ### 4. Verify on DockerHub
@@ -47,23 +47,27 @@ Users can now pull and run your image:
 # Pull the image
 docker pull mako10k/mcp-bridge:latest
 
-# Run the container
-docker run -d -p 3000:3000 mako10k/mcp-bridge:latest
+# Run the container (Note: Admin UI included)
+docker run -d -p 3002:3002 mako10k/mcp-bridge:latest
 
 # Or with custom configuration
 docker run -d \
-  -p 3000:3000 \
+  -p 3002:3002 \
   -v $(pwd)/mcp-config.json:/app/mcp-config.json:ro \
   mako10k/mcp-bridge:latest
+
+# Access the admin UI at http://localhost:3002
 ```
 
 ## Image Details
 
 - **Base Image**: node:20-alpine
-- **Size**: ~146MB (production image)
+- **Size**: ~160MB (production image with admin UI)
 - **Architecture**: linux/amd64
-- **Security**: Non-root user, minimal attack surface
+- **Security**: Localhost-only binding (127.0.0.1), non-root user, minimal attack surface
 - **Health Check**: Built-in health endpoint at `/health`
+- **Admin UI**: Web interface included at root path
+- **Default Port**: 3002 (configurable via environment or config file)
 
 ## Automated Publishing (Optional)
 

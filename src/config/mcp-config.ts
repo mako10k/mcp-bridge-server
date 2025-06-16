@@ -74,6 +74,7 @@ export const MCPConfigSchema = z.object({
   ).optional().describe('DEPRECATED: Use toolDiscoveryRules instead'),
   global: z.object({
     logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+    httpPort: z.number().default(3000).describe('HTTP server port'),
     maxConcurrentConnections: z.number().default(10),
     requestTimeout: z.number().default(30000),
     fixInvalidToolSchemas: z.boolean().default(false).describe('Whether to auto-fix invalid tool schemas or reject them'),
@@ -165,6 +166,7 @@ export function getDefaultConfig(): MCPConfig {
     ],
     global: {
       logLevel: 'info',
+      httpPort: 3000,
       maxConcurrentConnections: 10,
       requestTimeout: 30000,
       fixInvalidToolSchemas: false,
