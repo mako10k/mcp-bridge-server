@@ -590,15 +590,14 @@ export default function ServerManagement() {
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    {(server.status?.status === 'failed' || server.status?.status === 'disconnected') && (
-                      <button
-                        onClick={() => handleRetryServer(server.id)}
-                        className="btn btn-secondary flex items-center"
-                        title="Retry connection"
-                      >
-                        <Power className="h-4 w-4" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleRetryServer(server.id)}
+                      className="btn btn-secondary flex items-center"
+                      title={server.status?.status === 'connected' ? 'Restart server' : 'Retry connection'}
+                      disabled={server.status?.status === 'connecting' || server.status?.status === 'retrying'}
+                    >
+                      <Power className="h-4 w-4" />
+                    </button>
                     <button
                       onClick={() => handleEditServer(server)}
                       className="btn btn-secondary flex items-center"
