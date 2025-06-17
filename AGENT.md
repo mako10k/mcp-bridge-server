@@ -167,6 +167,10 @@ Before implementing any feature, verify:
 4. **Proper Logging**: All security-related events must be logged
 5. **Database Safety**: Always use transactions for multi-step operations
 
+## 🌐 Codex Network Notes
+- All outbound requests go through `http://proxy:8080` and may be logged.
+- Some domains are blocked and return `403 Forbidden`; see `docs/codex-network-restrictions.md` for details.
+
 ## 🔄 Regular Tasks
 
 ### Daily
