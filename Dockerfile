@@ -1,6 +1,12 @@
 # Multi-stage build for MCP Bridge Server
 FROM node:20-alpine AS builder
 
+# Metadata
+LABEL org.opencontainers.image.title="MCP Bridge Server"
+LABEL org.opencontainers.image.description="HTTP gateway for multiple STDIO-based MCP servers with multi-transport support and tool conflict resolution"
+LABEL org.opencontainers.image.version="1.5.0"
+LABEL org.opencontainers.image.source="https://github.com/mako10k/mcp-bridge-server"
+
 # Set working directory
 WORKDIR /app
 

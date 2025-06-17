@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2025-06-17
+
+### Added
+- **MCP Client Configuration UI** - Enhanced Global Settings with comprehensive client setup guides
+  - MCP server endpoint display with one-click copy functionality
+  - **Claude Desktop configuration** with accurate `claude_desktop_config.json` examples and file paths
+  - **VS Code MCP configuration** with both User Settings and Workspace Settings patterns
+  - **Continue.dev configuration** with MCP context provider setup examples
+  - Real-time endpoint URL updates when HTTP port changes
+  - Direct links to official documentation for each client
+  - Copy-to-clipboard functionality with visual feedback for all configuration snippets
+- **Server Management Features** - Enhanced admin UI controls
+  - Server restart functionality with confirmation dialogs
+  - Server shutdown capability with proper warnings
+  - Improved server status monitoring and control
+- **Enhanced Logging System** - Better debugging and monitoring capabilities
+  - Structured logging with multiple severity levels
+  - Request/response logging for better debugging
+  - Server operation logs with timestamps
+
+### Changed
+- **Global Settings UI** - Reorganized interface with dedicated MCP configuration section
+- **User Experience** - Added comprehensive setup guides with latest configuration patterns
+
+### Improved
+- **Documentation Integration** - Real-time links to latest MCP client documentation
+- **Configuration Management** - Dynamic updates and better validation
+
 ### Added
 - **Web-based Admin UI** - Modern React interface for managing the MCP Bridge Server
   - Real-time dashboard with server status and tool statistics

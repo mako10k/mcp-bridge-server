@@ -1,7 +1,7 @@
 {
   "name": "mcp-bridge-admin-ui",
   "private": true,
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Web-based admin interface for MCP Bridge Server - built with React, TypeScript, and TailwindCSS",
   "type": "module",
   "scripts": {
