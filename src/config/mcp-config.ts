@@ -6,6 +6,7 @@ import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../utils/logger.js';
+import { AuthConfigSchema } from './auth-config.js';
 
 // Zod schema for MCP server configuration
 export const MCPServerConfigSchema = z.object({
@@ -89,6 +90,7 @@ export const MCPConfigSchema = z.object({
       trustedProxies: z.array(z.string()).default([]),
     }).default({ allowExternalAccess: false, listenAddress: '127.0.0.1', trustedProxies: [] }),
   }).optional(),
+  auth: AuthConfigSchema.optional(),
 });
 
 export type MCPConfig = z.infer<typeof MCPConfigSchema>;
@@ -190,6 +192,11 @@ export function getDefaultConfig(): MCPConfig {
         listenAddress: '127.0.0.1',
         trustedProxies: [],
       },
+    },
+    auth: {
+      enabled: false,
+      mode: 'optional',
+      providers: [],
     },
   };
 }

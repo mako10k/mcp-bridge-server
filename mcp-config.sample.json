@@ -75,5 +75,29 @@
       "listenAddress": "127.0.0.1",
       "trustedProxies": []
     }
+  },
+  "auth": {
+    "enabled": false,
+    "mode": "optional",
+    "providers": [],
+    "rbac": {
+      "defaultRole": "viewer",
+      "roles": {
+        "admin": { "permissions": ["*"] },
+        "viewer": { "permissions": ["read"] }
+      },
+      "userMappings": []
+    },
+    "session": {
+      "secret": "${SESSION_SECRET}",
+      "maxAge": 86400000,
+      "secure": true,
+      "httpOnly": true
+    },
+    "jwt": {
+      "issuer": "mcp-bridge",
+      "audience": "mcp-bridge-api",
+      "expiresIn": "1h"
+    }
   }
 }

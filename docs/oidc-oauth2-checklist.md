@@ -22,12 +22,12 @@
   - [x] 動的制約検証システム
 
 ### 1.1 認証設定管理
-- [ ] `src/config/auth-config.ts` - 認証設定の読み込みと検証
-  - [ ] 環境変数置換（`${VAR_NAME}`形式）
-  - [ ] Zod スキーマによる設定検証
-  - [ ] 設定のホットリロード対応
-- [ ] `mcp-config.json` に auth セクション追加
-- [ ] 環境変数テンプレート `.env.example` 作成
+- [x] `src/config/auth-config.ts` - 認証設定の読み込みと検証
+  - [x] 環境変数置換（`${VAR_NAME}`形式）
+  - [x] Zod スキーマによる設定検証
+  - [x] 設定のホットリロード対応
+- [x] `mcp-config.json` に auth セクション追加
+- [x] 環境変数テンプレート `.env.example` 作成
 
 ### 1.2 型定義
 - [ ] `src/auth/types/auth-types.ts` - 認証関連の型定義
