@@ -24,6 +24,26 @@ export class ListenAddressSecurityManager {
     this.loadSecurityConfig();
   }
 
+  /**
+   * Apply security configuration from MCP config file
+   */
+  applyConfig(config: Partial<SecurityConfig>): void {
+    if (config.authentication && typeof config.authentication.enabled === 'boolean') {
+      this.authEnabled = config.authentication.enabled;
+    }
+    if (config.network) {
+      if (typeof config.network.allowExternalAccess === 'boolean') {
+        this.allowExternalAccess = config.network.allowExternalAccess;
+      }
+      if (typeof config.network.listenAddress === 'string') {
+        this.configuredListenAddress = config.network.listenAddress;
+      }
+      if (Array.isArray(config.network.trustedProxies)) {
+        this.trustedProxies = config.network.trustedProxies;
+      }
+    }
+  }
+
   private loadSecurityConfig(): void {
     // Load from environment variables
     this.authEnabled = process.env.AUTH_ENABLED === 'true';

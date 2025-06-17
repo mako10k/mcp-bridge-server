@@ -79,6 +79,16 @@ export const MCPConfigSchema = z.object({
     requestTimeout: z.number().default(30000),
     fixInvalidToolSchemas: z.boolean().default(false).describe('Whether to auto-fix invalid tool schemas or reject them'),
   }).optional(),
+  security: z.object({
+    authentication: z.object({
+      enabled: z.boolean().default(false),
+    }).default({ enabled: false }),
+    network: z.object({
+      allowExternalAccess: z.boolean().default(false),
+      listenAddress: z.string().default('127.0.0.1'),
+      trustedProxies: z.array(z.string()).default([]),
+    }).default({ allowExternalAccess: false, listenAddress: '127.0.0.1', trustedProxies: [] }),
+  }).optional(),
 });
 
 export type MCPConfig = z.infer<typeof MCPConfigSchema>;
@@ -170,6 +180,16 @@ export function getDefaultConfig(): MCPConfig {
       maxConcurrentConnections: 10,
       requestTimeout: 30000,
       fixInvalidToolSchemas: false,
+    },
+    security: {
+      authentication: {
+        enabled: false,
+      },
+      network: {
+        allowExternalAccess: false,
+        listenAddress: '127.0.0.1',
+        trustedProxies: [],
+      },
     },
   };
 }

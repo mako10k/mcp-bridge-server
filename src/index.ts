@@ -3,6 +3,7 @@
 import express from 'express';
 import cors from 'cors';
 import { loadMCPConfig } from './config/mcp-config.js';
+import { listenAddressSecurityManager } from './config/listen-address-security.js';
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
 import { BridgeToolRegistry } from './bridge-tool-registry.js';
 import { MCPHttpServer } from './mcp-http-server.js';
@@ -32,6 +33,10 @@ logger.info(`Using configuration file: ${configPath}`);
 const app = express();
 // Load MCP configuration first to get port setting
 const mcpConfig = loadMCPConfig(configPath);
+// Apply security configuration
+if (mcpConfig.security) {
+  listenAddressSecurityManager.applyConfig(mcpConfig.security);
+}
 const port = Number(process.env.PORT || mcpConfig.global?.httpPort || 3000);
 currentPort = port;
 
@@ -65,11 +70,19 @@ async function restartServerOnNewPort(newPort: number): Promise<void> {
     // Update current port
     currentPort = newPort;
     
-    // Start server on new port (localhost only for security)
-    server = app.listen(newPort, '127.0.0.1', () => {
-      logger.info(`MCP Bridge Server restarted on port ${newPort} (localhost only)`);
-      logger.info(`Health check: http://localhost:${newPort}/health`);
-      logger.info(`Available servers: http://localhost:${newPort}/mcp/servers`);
+    const listenAddress = listenAddressSecurityManager.getListenAddress();
+    server = app.listen(newPort, listenAddress, () => {
+      logger.info(`MCP Bridge Server restarted on port ${newPort} (${listenAddress})`);
+      logger.info(`Health check: http://${listenAddress === '0.0.0.0' ? 'localhost' : listenAddress}:${newPort}/health`);
+      logger.info(`Available servers: http://${listenAddress === '0.0.0.0' ? 'localhost' : listenAddress}:${newPort}/mcp/servers`);
+
+      const status = listenAddressSecurityManager.getSecurityStatus();
+      logger.info(
+        `Security status: authEnabled=${status.authEnabled}, externalAccess=${status.allowExternalAccess}, effectiveAddress=${status.effectiveListenAddress}`
+      );
+      for (const rec of status.recommendations) {
+        logger.warn(rec);
+      }
     });
     
     server.on('error', (error: any) => {
@@ -185,11 +198,20 @@ async function startServer() {
       }
     }
     
-    server = app.listen(actualPort, '127.0.0.1', () => {
+    const listenAddress = listenAddressSecurityManager.getListenAddress();
+    server = app.listen(actualPort, listenAddress, () => {
       currentPort = actualPort; // Update current port
-      logger.info(`MCP Bridge Server running on port ${actualPort} (localhost only)`);
-      logger.info(`Health check: http://localhost:${actualPort}/health`);
-      logger.info(`Available servers: http://localhost:${actualPort}/mcp/servers`);
+      logger.info(`MCP Bridge Server running on ${listenAddress}:${actualPort}`);
+      logger.info(`Health check: http://${listenAddress === '0.0.0.0' ? 'localhost' : listenAddress}:${actualPort}/health`);
+      logger.info(`Available servers: http://${listenAddress === '0.0.0.0' ? 'localhost' : listenAddress}:${actualPort}/mcp/servers`);
+
+      const status = listenAddressSecurityManager.getSecurityStatus();
+      logger.info(
+        `Security status: authEnabled=${status.authEnabled}, externalAccess=${status.allowExternalAccess}, effectiveAddress=${status.effectiveListenAddress}`
+      );
+      for (const rec of status.recommendations) {
+        logger.warn(rec);
+      }
     });
 
     server.on('error', (error: any) => {
@@ -230,7 +252,7 @@ function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const server = net.createServer();
     
-    server.listen(port, '127.0.0.1', () => {
+    server.listen(port, listenAddressSecurityManager.getListenAddress(), () => {
       server.close(() => {
         resolve(true);
       });

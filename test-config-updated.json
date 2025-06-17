@@ -42,5 +42,15 @@
     "logLevel": "info",
     "maxConcurrentConnections": 10,
     "requestTimeout": 20000
+  },
+  "security": {
+    "authentication": {
+      "enabled": false
+    },
+    "network": {
+      "allowExternalAccess": false,
+      "listenAddress": "127.0.0.1",
+      "trustedProxies": []
+    }
   }
 }
