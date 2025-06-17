@@ -450,6 +450,9 @@ mcp-bridge/
 
 ### Building and Testing
 ```bash
+# Install dependencies
+npm install
+
 # Build backend
 npm run build
 

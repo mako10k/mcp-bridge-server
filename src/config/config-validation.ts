@@ -71,11 +71,31 @@ export class SecurityValidator {
   }
 
   async validateSecurityLevel(_template: any): Promise<void> {
-    // placeholder for future checks
+    const level = _template?.adminControlled?.securityLevel;
+    const allowed = ['low', 'medium', 'high'];
+    if (!allowed.includes(level)) {
+      throw new SecurityError(`Invalid security level: ${level}`);
+    }
   }
 
   async validateFinalConfig(_config: MCPServerConfig, _authContext: AuthContext): Promise<void> {
-    // placeholder
+    if (_config.command) {
+      await this.validateCommand(_config.command);
+    }
+    if (Array.isArray(_config.args)) {
+      for (const arg of _config.args) {
+        if (typeof arg === 'string') {
+          await this.validateCommandInjection(arg);
+        }
+      }
+    }
+    if (_config.env) {
+      for (const val of Object.values(_config.env)) {
+        if (typeof val === 'string') {
+          await this.validateCommandInjection(val);
+        }
+      }
+    }
   }
 
   private async validatePathSecurity(path: string, allowedPatterns?: string[]): Promise<void> {
@@ -103,7 +123,10 @@ export class SecurityValidator {
   }
 
   private async validateCommand(_command: string): Promise<void> {
-    // placeholder
+    if (!_command) {
+      throw new SecurityError('Command cannot be empty');
+    }
+    await this.validateCommandInjection(_command);
   }
 }
 
@@ -140,11 +163,32 @@ export class ConfigValidator {
 
   async validateFinalConfig(config: MCPServerConfig, authContext: AuthContext): Promise<void> {
     await this.validateConfigIntegrity(config);
+    await this.validateResourceLimits(config, authContext);
     await this.securityValidator.validateFinalConfig(config, authContext);
   }
 
-  private async validateSettingDefinition(_key: string, _definition: SettingDefinition): Promise<void> {
-    // placeholder for definition structure checks
+  private async validateSettingDefinition(key: string, definition: SettingDefinition): Promise<void> {
+    if (!definition || !definition.type) {
+      throw new ValidationError(`Setting ${key} missing type definition`);
+    }
+    if (definition.default !== undefined) {
+      await this.validateType(definition.default, definition.type);
+    }
+    if (definition.constraints) {
+      const { min, max, minLength, maxLength } = definition.constraints;
+      if (min !== undefined && max !== undefined && min > max) {
+        throw new ValidationError(`Invalid numeric constraint for ${key}: min > max`);
+      }
+      if (minLength !== undefined && maxLength !== undefined && minLength > maxLength) {
+        throw new ValidationError(`Invalid length constraint for ${key}: minLength > maxLength`);
+      }
+      await this.validateConstraints(definition.default, definition.constraints);
+    }
+    if (definition.type === 'enum' && definition.constraints?.values) {
+      if (!definition.constraints.values.includes(definition.default)) {
+        throw new ValidationError(`Default value for ${key} must be one of ${definition.constraints.values.join(', ')}`);
+      }
+    }
   }
 
   private async validateType(value: any, type: string): Promise<void> {
@@ -222,6 +266,23 @@ export class ConfigValidator {
   }
 
   private async validateConfigIntegrity(_config: MCPServerConfig): Promise<void> {
-    // placeholder
+    if (!_config.name) {
+      throw new ValidationError('Server config missing name');
+    }
+    if (_config.transport === 'stdio' && !_config.command) {
+      throw new ValidationError('STDIO transport requires command');
+    }
+    if ((_config.transport === 'http' || _config.transport === 'sse') && !_config.url) {
+      throw new ValidationError('HTTP/SSE transport requires url');
+    }
+    if (_config.timeout !== undefined && _config.timeout <= 0) {
+      throw new ValidationError('Timeout must be greater than 0');
+    }
+  }
+
+  private async validateResourceLimits(config: MCPServerConfig, _authContext: AuthContext): Promise<void> {
+    if (config.timeout && config.timeout > 300000) {
+      throw new ValidationError('Timeout exceeds allowed maximum (300000ms)');
+    }
   }
 }
