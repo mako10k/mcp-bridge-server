@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, RefreshCw, Settings, Power, RotateCcw } from 'lucide-react';
+import { Save, RefreshCw, Settings, Power, RotateCcw, Copy, ExternalLink, Code } from 'lucide-react';
 import { MCPBridgeService } from '../services/mcpBridge';
 import api from '../services/api';
 import type { GlobalConfig } from '../types';
@@ -15,6 +15,7 @@ export default function GlobalSettings() {
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [copyMessages, setCopyMessages] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     fetchGlobalConfig();
@@ -117,6 +118,71 @@ export default function GlobalSettings() {
     } finally {
       setShuttingDown(false);
     }
+  };
+
+  const copyToClipboard = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyMessages(prev => ({ ...prev, [key]: true }));
+      setTimeout(() => {
+        setCopyMessages(prev => ({ ...prev, [key]: false }));
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+    }
+  };
+
+  const getServerEndpoint = () => {
+    return `http://localhost:${config.httpPort || 3000}/mcp`;
+  };
+
+  const getClaudeDesktopConfig = () => {
+    return JSON.stringify({
+      "mcpServers": {
+        "mcp-bridge": {
+          "command": "curl",
+          "args": [
+            "-X", "POST",
+            "-H", "Content-Type: application/json",
+            "-H", "Accept: application/json",
+            getServerEndpoint()
+          ]
+        }
+      }
+    }, null, 2);
+  };
+
+  const getVSCodeUserSettingsConfig = () => {
+    return JSON.stringify({
+      "mcp": {
+        "servers": {
+          "mcp-bridge": {
+            "type": "http",
+            "url": getServerEndpoint()
+          }
+        }
+      }
+    }, null, 2);
+  };
+
+  const getVSCodeWorkspaceConfig = () => {
+    return JSON.stringify({
+      "servers": {
+        "mcp-bridge": {
+          "type": "http",
+          "url": getServerEndpoint()
+        }
+      }
+    }, null, 2);
+  };
+
+  const getContinueDevConfig = () => {
+    return `contextProviders:
+  - name: mcp
+    params:
+      serverName: "mcp-bridge"
+      url: "${getServerEndpoint()}"
+      transport: "http"`;
   };
 
   if (loading) {
@@ -270,6 +336,196 @@ export default function GlobalSettings() {
             <Save className="h-4 w-4 mr-2" />
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
+        </div>
+      </div>
+
+      {/* MCP Configuration Section */}
+      <div className="mt-6">
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900 flex items-center">
+              <Code className="h-5 w-5 mr-2" />
+              MCP Server Configuration
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Connect this MCP Bridge to various clients like Claude Desktop, VS Code, Continue.dev, etc.
+            </p>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* Server Endpoint */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                MCP Server Endpoint
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={getServerEndpoint()}
+                  readOnly
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-mono text-sm"
+                />
+                <button
+                  onClick={() => copyToClipboard(getServerEndpoint(), 'endpoint')}
+                  className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                >
+                  <Copy className="h-4 w-4 mr-1" />
+                  {copyMessages['endpoint'] ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                Use this HTTP endpoint to connect MCP clients to this bridge server.
+              </p>
+            </div>
+
+            {/* Claude Desktop Configuration */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Claude Desktop Configuration
+                </label>
+                <a
+                  href="https://modelcontextprotocol.io/quickstart/user"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  Official Guide
+                </a>
+              </div>
+              <div className="relative">
+                <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+                  <code>{getClaudeDesktopConfig()}</code>
+                </pre>
+                <button
+                  onClick={() => copyToClipboard(getClaudeDesktopConfig(), 'claude')}
+                  className="absolute top-2 right-2 inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded text-xs hover:bg-gray-600"
+                >
+                  <Copy className="h-3 w-3 mr-1" />
+                  {copyMessages['claude'] ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <p className="mt-2 text-sm text-gray-500">
+                Add this to your <code className="bg-gray-100 px-1 rounded">claude_desktop_config.json</code> file:
+                <br />
+                <strong>macOS:</strong> <code className="bg-gray-100 px-1 rounded">~/Library/Application Support/Claude/claude_desktop_config.json</code>
+                <br />
+                <strong>Windows:</strong> <code className="bg-gray-100 px-1 rounded">%APPDATA%\Claude\claude_desktop_config.json</code>
+              </p>
+            </div>
+
+            {/* VS Code Configuration */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">
+                  VS Code MCP Configuration
+                </label>
+                <a
+                  href="https://code.visualstudio.com/docs/copilot/chat/mcp-servers"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  VS Code MCP Docs
+                </a>
+              </div>
+
+              {/* User Settings Option */}
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Option 1: User Settings (Global)</h4>
+                <div className="relative">
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+                    <code>{getVSCodeUserSettingsConfig()}</code>
+                  </pre>
+                  <button
+                    onClick={() => copyToClipboard(getVSCodeUserSettingsConfig(), 'vscode-user')}
+                    className="absolute top-2 right-2 inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded text-xs hover:bg-gray-600"
+                  >
+                    <Copy className="h-3 w-3 mr-1" />
+                    {copyMessages['vscode-user'] ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  Add this to your VS Code <strong>User Settings</strong> (<code className="bg-gray-100 px-1 rounded">settings.json</code>).
+                  This applies to all workspaces.
+                </p>
+              </div>
+
+              {/* Workspace Settings Option */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Option 2: Workspace Settings (Project-specific)</h4>
+                <div className="relative">
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+                    <code>{getVSCodeWorkspaceConfig()}</code>
+                  </pre>
+                  <button
+                    onClick={() => copyToClipboard(getVSCodeWorkspaceConfig(), 'vscode-workspace')}
+                    className="absolute top-2 right-2 inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded text-xs hover:bg-gray-600"
+                  >
+                    <Copy className="h-3 w-3 mr-1" />
+                    {copyMessages['vscode-workspace'] ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  Create <code className="bg-gray-100 px-1 rounded">.vscode/mcp.json</code> file in your workspace folder.
+                  This applies only to the specific project and can be shared with team members.
+                </p>
+              </div>
+              
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <strong>Prerequisites:</strong> Enable MCP support with <code className="bg-amber-100 px-1 rounded">chat.mcp.enabled: true</code> 
+                  and agent mode with <code className="bg-amber-100 px-1 rounded">chat.agent.enabled: true</code> in VS Code settings.
+                </p>
+              </div>
+            </div>
+
+            {/* Continue.dev Configuration */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Continue.dev Configuration
+                </label>
+                <a
+                  href="https://docs.continue.dev/reference"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  Continue.dev Docs
+                </a>
+              </div>
+              <div className="relative">
+                <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+                  <code>{getContinueDevConfig()}</code>
+                </pre>
+                <button
+                  onClick={() => copyToClipboard(getContinueDevConfig(), 'continue')}
+                  className="absolute top-2 right-2 inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded text-xs hover:bg-gray-600"
+                >
+                  <Copy className="h-3 w-3 mr-1" />
+                  {copyMessages['continue'] ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <p className="mt-2 text-sm text-gray-500">
+                Add this to your Continue.dev <code className="bg-gray-100 px-1 rounded">config.yaml</code> file to use MCP context providers.
+              </p>
+            </div>
+
+            {/* General Notes */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-blue-900 mb-2">Important Notes</h3>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Restart your MCP client after updating configuration files</li>
+                <li>• Ensure this MCP Bridge server is running when using clients</li>
+                <li>• Port changes require updating client configurations</li>
+                <li>• Check client-specific documentation for the latest setup instructions</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
 
