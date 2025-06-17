@@ -1,0 +1,62 @@
+{
+  "id": "user-filesystem",
+  "name": "Personal File System",
+  "description": "Access to personal files",
+  "category": "filesystem",
+  "adminControlled": {
+    "command": "npx",
+    "baseArgs": ["@modelcontextprotocol/server-filesystem", "{userWorkspace}"],
+    "lifecycle": "user",
+    "requireAuth": true,
+    "securityLevel": "medium",
+    "resourceLimits": {
+      "maxMemoryMB": 512,
+      "maxCpuPercent": 50,
+      "timeoutSeconds": 30
+    }
+  },
+  "userCustomizable": {
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable personal file server"
+    },
+    "userWorkspace": {
+      "type": "path",
+      "default": "/home/{userId}/workspace",
+      "description": "Workspace path",
+      "constraints": {
+        "allowedPatterns": ["/home/{userId}/**"]
+      }
+    },
+    "maxFileSize": {
+      "type": "integer",
+      "default": 10485760,
+      "description": "Maximum file size (bytes)",
+      "constraints": {
+        "min": 1048576,
+        "max": 52428800
+      }
+    }
+  },
+  "environmentVariables": {
+    "adminControlled": {
+      "MCP_SERVER_TYPE": "filesystem",
+      "SECURITY_LEVEL": "user"
+    },
+    "userCustomizable": {
+      "DEBUG_LEVEL": {
+        "type": "enum",
+        "values": ["error", "warn", "info", "debug"],
+        "default": "warn",
+        "description": "Debug output level"
+      },
+      "CACHE_SIZE": {
+        "type": "integer",
+        "default": 100,
+        "description": "Cache size",
+        "constraints": { "min": 10, "max": 1000 }
+      }
+    }
+  }
+}
