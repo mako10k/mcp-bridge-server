@@ -4,7 +4,7 @@
 
 ### 🔒 セキュリティ強化機能
 - [x] **Listen Address セキュリティ実装**
-  - [x] 認証無効時: `127.0.0.1` 強制設定
+  - [x] 認証無効時: `127.0.0.1` または `::1` 強制設定
   - [x] 認証有効時: 設定可能（`listenAddress` config対応）
   - [x] 設定変更時のセキュリティ警告ログ
   - [ ] Admin UIでのListen Address設定UI
@@ -30,9 +30,9 @@
 - [x] 環境変数テンプレート `.env.example` 作成
 
 ### 1.2 型定義
-- [ ] `src/auth/types/auth-types.ts` - 認証関連の型定義
-- [ ] `src/auth/types/oidc-types.ts` - OIDC仕様の型定義
-- [ ] `src/auth/types/rbac-types.ts` - RBAC関連の型定義
+- [x] `src/auth/types/auth-types.ts` - 認証関連の型定義
+- [x] `src/auth/types/oidc-types.ts` - OIDC仕様の型定義
+- [x] `src/auth/types/rbac-types.ts` - RBAC関連の型定義
 
 ### 1.3 OIDC/OAuth2 基盤
 - [ ] `src/auth/providers/base-provider.ts` - プロバイダー基底クラス

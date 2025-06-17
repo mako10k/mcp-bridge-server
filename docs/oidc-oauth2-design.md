@@ -205,8 +205,8 @@ admin:     ['/mcp/config/*', '/mcp/server/restart']
 **重要**: ネットワークアクセス制御による段階的セキュリティ
 
 #### ルール
-- **認証無効時**: `127.0.0.1` (localhost) 固定 - 外部アクセス不可
-- **認証有効時**: 設定可能 - `0.0.0.0`, 特定IP等を許可
+- **認証無効時**: `127.0.0.1` または `::1` (localhost) 固定 - 外部アクセス不可
+- **認証有効時**: 設定可能 - `0.0.0.0` / `::`, 特定IP等を許可
 
 #### 実装方針
 ```typescript
@@ -215,9 +215,9 @@ function getListenAddress(authConfig: AuthConfig, globalConfig: GlobalConfig): s
   if (!authConfig.enabled) {
     // 認証無効時は強制的にlocalhostのみ
     logger.warn('Authentication is disabled. Forcing localhost-only access for security.');
-    return '127.0.0.1';
+    return globalConfig.listenAddress === '::1' ? '::1' : '127.0.0.1';
   }
-  
+
   // 認証有効時のみ設定可能
   return globalConfig.listenAddress || '127.0.0.1';
 }
