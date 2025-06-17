@@ -10,15 +10,15 @@
   - [ ] Admin UIでのListen Address設定UI
 
 ### 🛠️ ユーザー設定カスタマイズ基盤
-- [ ] **設定テンプレートシステム**
-  - [ ] `src/config/config-template-engine.ts` - 設定テンプレートエンジン
-  - [ ] `ServerConfigTemplate` 型定義とスキーマ実装
-  - [ ] パラメータ展開システム（{userId}, {userEmail}, etc.）
-  - [ ] テンプレート検証システム
-- [ ] **設定検証・セキュリティ**
-  - [ ] `src/config/config-validation.ts` - 設定検証システム
-  - [ ] `SecurityValidator` - パスインジェクション防止
-  - [ ] `PathValidator` - パス形式検証
+- [x] **設定テンプレートシステム**
+  - [x] `src/config/config-template-engine.ts` - 設定テンプレートエンジン
+  - [x] `ServerConfigTemplate` 型定義とスキーマ実装
+  - [x] パラメータ展開システム（{userId}, {userEmail}, etc.）
+  - [x] テンプレート検証システム
+- [x] **設定検証・セキュリティ**
+  - [x] `src/config/config-validation.ts` - 設定検証システム
+  - [x] `SecurityValidator` - パスインジェクション防止
+  - [x] `PathValidator` - パス形式検証
   - [ ] 動的制約検証システム
 
 ### 1.1 認証設定管理
