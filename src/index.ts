@@ -9,6 +9,7 @@ import { BridgeToolRegistry } from './bridge-tool-registry.js';
 import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
 import { Server } from 'http';
+import net from 'net';
 
 // Server instance reference for restart functionality
 let server: Server | null = null;
@@ -456,6 +457,81 @@ app.put('/mcp/config/discovery-rules', (async (req, res) => {
   }
 }) as express.RequestHandler);
 
+// Logs API endpoints
+app.get('/mcp/logs', (async (req, res) => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+    const logs = logger.getLogs(limit);
+    res.json({ logs });
+  } catch (error) {
+    logger.error('Error retrieving logs:', error);
+    res.status(500).json({ error: 'Failed to retrieve logs' });
+  }
+}) as express.RequestHandler);
+
+app.delete('/mcp/logs', (async (req, res) => {
+  try {
+    logger.clearLogs();
+    logger.info('Logs cleared via API');
+    res.json({ success: true, message: 'Logs cleared successfully' });
+  } catch (error) {
+    logger.error('Error clearing logs:', error);
+    res.status(500).json({ error: 'Failed to clear logs' });
+  }
+}) as express.RequestHandler);
+
+// Server management API endpoints
+app.post('/mcp/server/restart', (async (req, res) => {
+  try {
+    const newPort = req.body.port || currentPort;
+    logger.info(`Server restart requested via API, port: ${newPort}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Server restart initiated',
+      newPort: newPort
+    });
+    
+    // Restart server after sending response
+    setTimeout(async () => {
+      try {
+        await restartServerOnNewPort(newPort);
+      } catch (error) {
+        logger.error('Failed to restart server:', error);
+      }
+    }, 100);
+    
+  } catch (error) {
+    logger.error('Error initiating server restart:', error);
+    res.status(500).json({ error: 'Failed to initiate server restart' });
+  }
+}) as express.RequestHandler);
+
+app.post('/mcp/server/shutdown', (async (req, res) => {
+  try {
+    logger.info('Server shutdown requested via API');
+    res.json({ 
+      success: true, 
+      message: 'Server shutdown initiated'
+    });
+    
+    // Shutdown server after sending response
+    setTimeout(async () => {
+      try {
+        await performGracefulShutdown();
+        process.exit(0);
+      } catch (error) {
+        logger.error('Failed to shutdown server gracefully:', error);
+        process.exit(1);
+      }
+    }, 100);
+    
+  } catch (error) {
+    logger.error('Error initiating server shutdown:', error);
+    res.status(500).json({ error: 'Failed to initiate server shutdown' });
+  }
+}) as express.RequestHandler);
+
 // Error handling middleware
 app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Unhandled error:', error);
@@ -493,13 +569,40 @@ async function restartServerOnNewPort(newPort: number): Promise<void> {
       logger.info(`Available servers: http://localhost:${newPort}/mcp/servers`);
     });
     
-    server.on('error', (error) => {
-      logger.error(`Failed to start server on port ${newPort}:`, error);
+    server.on('error', (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        logger.error(`Port ${newPort} is already in use during restart. Cannot restart server.`);
+      } else {
+        logger.error(`Failed to start server on port ${newPort}:`, error);
+      }
     });
     
   } catch (error) {
     logger.error(`Failed to restart server on port ${newPort}:`, error);
   }
+}
+
+/**
+ * Perform graceful shutdown
+ */
+async function performGracefulShutdown(): Promise<void> {
+  logger.info('Performing graceful shutdown...');
+  
+  // Close HTTP server
+  if (server) {
+    await new Promise<void>((resolve) => {
+      server!.close(() => {
+        logger.info('HTTP server closed');
+        resolve();
+      });
+    });
+  }
+  
+  // Shutdown MCP components
+  await toolRegistry.shutdown();
+  await mcpManager.shutdown();
+  
+  logger.info('Graceful shutdown completed');
 }
 
 // Start the server
@@ -545,10 +648,35 @@ async function startServer() {
     // Execute automatic discovery based on tool discovery rules
     await toolRegistry.applyDiscoveryRules();
     
-    server = app.listen(port, '127.0.0.1', () => {
-      logger.info(`MCP Bridge Server running on port ${port} (localhost only)`);
-      logger.info(`Health check: http://localhost:${port}/health`);
-      logger.info(`Available servers: http://localhost:${port}/mcp/servers`);
+    // Check if configured port is available, otherwise find an available one
+    let actualPort = port;
+    if (!(await isPortAvailable(port))) {
+      logger.warn(`Configured port ${port} is not available, searching for alternative...`);
+      try {
+        actualPort = await findAvailablePort(port);
+        logger.info(`Using alternative port ${actualPort}`);
+      } catch (error) {
+        logger.error('No available ports found:', error);
+        process.exit(1);
+      }
+    }
+    
+    server = app.listen(actualPort, '127.0.0.1', () => {
+      currentPort = actualPort; // Update current port
+      logger.info(`MCP Bridge Server running on port ${actualPort} (localhost only)`);
+      logger.info(`Health check: http://localhost:${actualPort}/health`);
+      logger.info(`Available servers: http://localhost:${actualPort}/mcp/servers`);
+    });
+
+    server.on('error', (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        logger.error(`Port ${actualPort} is already in use. Please check if another MCP Bridge Server is running or use a different port.`);
+        logger.error('To check for running processes: ps aux | grep "node dist/src/index.js"');
+        logger.error('To kill existing processes: pkill -f "node dist/src/index.js"');
+      } else {
+        logger.error(`Server failed to start on port ${actualPort}:`, error);
+      }
+      process.exit(1);
     });
   } catch (error) {
     logger.error('Failed to start MCP Bridge Server:', error);
@@ -570,5 +698,36 @@ process.on('SIGTERM', async () => {
   await mcpManager.shutdown();
   process.exit(0);
 });
+
+/**
+ * Check if a port is available
+ */
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    
+    server.listen(port, '127.0.0.1', () => {
+      server.close(() => {
+        resolve(true);
+      });
+    });
+    
+    server.on('error', () => {
+      resolve(false);
+    });
+  });
+}
+
+/**
+ * Find next available port starting from given port
+ */
+async function findAvailablePort(startPort: number): Promise<number> {
+  for (let port = startPort; port <= startPort + 100; port++) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+  }
+  throw new Error(`No available ports found in range ${startPort}-${startPort + 100}`);
+}
 
 startServer();
