@@ -35,9 +35,9 @@
 - [x] `src/auth/types/rbac-types.ts` - RBAC関連の型定義
 
 ### 1.3 OIDC/OAuth2 基盤
-- [ ] `src/auth/providers/base-provider.ts` - プロバイダー基底クラス
+- [x] `src/auth/providers/base-provider.ts` - プロバイダー基底クラス
  - [x] `src/auth/utils/jwt-utils.ts` - JWT検証/生成ユーティリティ
-- [ ] `src/auth/utils/pkce-utils.ts` - PKCE実装
+- [x] `src/auth/utils/pkce-utils.ts` - PKCE実装
 - [ ] `src/auth/utils/crypto-utils.ts` - 暗号化ユーティリティ
 
 ### 1.4 認証フロー実装
