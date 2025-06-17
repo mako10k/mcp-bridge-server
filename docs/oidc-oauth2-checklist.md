@@ -36,7 +36,7 @@
 
 ### 1.3 OIDC/OAuth2 基盤
 - [ ] `src/auth/providers/base-provider.ts` - プロバイダー基底クラス
-- [ ] `src/auth/utils/jwt-utils.ts` - JWT検証/生成ユーティリティ
+ - [x] `src/auth/utils/jwt-utils.ts` - JWT検証/生成ユーティリティ
 - [ ] `src/auth/utils/pkce-utils.ts` - PKCE実装
 - [ ] `src/auth/utils/crypto-utils.ts` - 暗号化ユーティリティ
 
