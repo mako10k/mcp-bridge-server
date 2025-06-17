@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Save, RefreshCw, Settings } from 'lucide-react';
+import { Save, RefreshCw, Settings, Power, RotateCcw } from 'lucide-react';
 import { MCPBridgeService } from '../services/mcpBridge';
+import api from '../services/api';
 import type { GlobalConfig } from '../types';
 
 const mcpBridge = new MCPBridgeService();
@@ -9,6 +10,10 @@ export default function GlobalSettings() {
   const [config, setConfig] = useState<GlobalConfig>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const [shuttingDown, setShuttingDown] = useState(false);
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -58,6 +63,60 @@ export default function GlobalSettings() {
 
   const updateConfig = (key: keyof GlobalConfig, value: any) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleRestartServer = async () => {
+    setShowRestartConfirm(false);
+    setRestarting(true);
+    try {
+      const response = await api.post('/mcp/server/restart');
+      
+      if (response.data.success) {
+        setMessage({ 
+          type: 'success', 
+          text: 'MCP Bridge Server restart initiated. The server will restart shortly.' 
+        });
+        
+        // Reload the page after a short delay to reconnect to the restarted server
+        setTimeout(() => {
+          window.location.reload();
+        }, 3000);
+      } else {
+        setMessage({ type: 'error', text: response.data.message || 'Failed to restart server' });
+      }
+    } catch (error) {
+      console.error('Error restarting server:', error);
+      setMessage({ type: 'error', text: 'Failed to restart server' });
+    } finally {
+      setRestarting(false);
+    }
+  };
+
+  const handleShutdownServer = async () => {
+    setShowShutdownConfirm(false);
+    setShuttingDown(true);
+    try {
+      const response = await api.post('/mcp/server/shutdown');
+      
+      if (response.data.success) {
+        setMessage({ 
+          type: 'success', 
+          text: 'MCP Bridge Server shutdown initiated. The admin UI will be unavailable until the server is manually restarted.' 
+        });
+        
+        // Show a final message before the server shuts down
+        setTimeout(() => {
+          alert('MCP Bridge Server is shutting down. This page will become unavailable.');
+        }, 2000);
+      } else {
+        setMessage({ type: 'error', text: response.data.message || 'Failed to shutdown server' });
+      }
+    } catch (error) {
+      console.error('Error shutting down server:', error);
+      setMessage({ type: 'error', text: 'Failed to shutdown server' });
+    } finally {
+      setShuttingDown(false);
+    }
   };
 
   if (loading) {
@@ -213,6 +272,103 @@ export default function GlobalSettings() {
           </button>
         </div>
       </div>
+
+      {/* Server Management */}
+      <div className="mt-6">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-medium text-gray-900 flex items-center">
+            <Power className="h-5 w-5 mr-2" />
+            Server Management
+          </h2>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Restart Server */}
+          <div>
+            <button
+              onClick={() => setShowRestartConfirm(true)}
+              className="w-full inline-flex items-center justify-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Restart Server
+            </button>
+            <p className="mt-1 text-sm text-gray-500">
+              Restart the MCP Bridge server. Useful for applying configuration changes.
+            </p>
+          </div>
+
+          {/* Shutdown Server */}
+          <div>
+            <button
+              onClick={() => setShowShutdownConfirm(true)}
+              className="w-full inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              <Power className="h-4 w-4 mr-2" />
+              Shutdown Server
+            </button>
+            <p className="mt-1 text-sm text-gray-500">
+              Shutdown the MCP Bridge server. It will stop all running processes.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirm Modals */}
+      {showRestartConfirm && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Confirm Restart
+            </h3>
+            <p className="text-sm text-gray-700 mb-4">
+              Are you sure you want to restart the server? This will apply any configuration changes.
+            </p>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowRestartConfirm(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRestartServer}
+                disabled={restarting}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50"
+              >
+                {restarting ? 'Restarting...' : 'Restart Server'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showShutdownConfirm && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Confirm Shutdown
+            </h3>
+            <p className="text-sm text-gray-700 mb-4">
+              Are you sure you want to shutdown the server? This will stop all running processes.
+            </p>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowShutdownConfirm(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleShutdownServer}
+                disabled={shuttingDown}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {shuttingDown ? 'Shutting down...' : 'Shutdown Server'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
