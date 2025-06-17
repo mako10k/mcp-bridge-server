@@ -34,7 +34,7 @@ A TypeScript-based HTTP gateway for multiple STDIO-based MCP (Model Context Prot
 - **Tool Discovery Rules**: Visual interface for managing auto-discovery patterns
 
 ### Security & Operations
-- **Localhost-only Binding**: Secure by default - only accepts connections from localhost
+- **Configurable Binding**: Defaults to localhost (`127.0.0.1` or `::1`). When authentication is enabled, network access can be configured via `security.network.listenAddress`.
 - **Comprehensive Logging**: Detailed logging for debugging MCP connections
 - **Type Safety**: Full TypeScript implementation with strict type checking
 
@@ -324,12 +324,11 @@ Content-Type: application/json
 
 ## 🔒 Security
 
-**Important**: This version binds to localhost (127.0.0.1) only for security.
+-**Important**: When authentication is disabled, the server binds to the loopback interface (`127.0.0.1` or `::1`) for safety.
 
-- **Localhost-only**: Server only accepts connections from localhost
-- **No Authentication**: Authentication features are not yet implemented
-- **Development Use**: Intended for development and local use only
-- **Network Isolation**: Cannot be accessed from external networks
+- **Configurable Access**: With authentication enabled, use `security.network.listenAddress` to allow external clients
+- **No Authentication**: When disabled, only localhost connections are permitted
+- **Development Use**: Intended for development and local use only by default
 
 Future versions will include:
 - Authentication and authorization

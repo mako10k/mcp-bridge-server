@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+import { isIP } from 'node:net';
 
 // Security configuration for listen address
 export interface SecurityConfig {
@@ -18,6 +19,7 @@ export class ListenAddressSecurityManager {
   private authEnabled: boolean = false;
   private allowExternalAccess: boolean = false;
   private configuredListenAddress: string = '127.0.0.1';
+  private readonly LOCAL_ADDRESSES = ['127.0.0.1', '::1', 'localhost'];
   private trustedProxies: string[] = [];
 
   constructor() {
@@ -61,11 +63,18 @@ export class ListenAddressSecurityManager {
   getListenAddress(): string {
     // Security rule: If authentication is disabled, force localhost binding
     if (!this.authEnabled) {
-      if (this.configuredListenAddress !== '127.0.0.1' && this.configuredListenAddress !== 'localhost') {
+      if (!this.LOCAL_ADDRESSES.includes(this.configuredListenAddress)) {
         logger.warn(
-          'Authentication is disabled. Forcing listen address to localhost (127.0.0.1) for security. ' +
+          'Authentication is disabled. Forcing listen address to localhost for security. ' +
           'To allow external access, enable authentication first.'
         );
+      }
+
+      if (this.configuredListenAddress === '::1') {
+        return '::1';
+      }
+      if (this.configuredListenAddress === 'localhost') {
+        return 'localhost';
       }
       return '127.0.0.1';
     }
@@ -187,16 +196,11 @@ export class ListenAddressSecurityManager {
    * Validate listen address format
    */
   validateListenAddress(address: string): boolean {
-    // Basic IP address validation
-    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
-    
-    // Allow special cases
     if (address === 'localhost' || address === '0.0.0.0' || address === '::') {
       return true;
     }
 
-    return ipv4Regex.test(address) || ipv6Regex.test(address);
+    return isIP(address) !== 0;
   }
 
   /**

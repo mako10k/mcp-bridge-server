@@ -1,7 +1,7 @@
 # Listen Address セキュリティ実装メモ
 
 ## 現在の実装状況
-現在のindex.tsでは、以下の3箇所でlisten addressが `'127.0.0.1'` にハードコードされている：
+現在のindex.tsでは、以下の3箇所でlisten addressが `'127.0.0.1'` (または `::1`) にハードコードされている：
 
 1. `restartServerOnNewPort()` 関数内 (line 69)
 2. `startServer()` 関数内 (line 188) 
@@ -18,11 +18,11 @@ export function getSecureListenAddress(
 ): string {
   if (!authConfig.enabled) {
     logger.warn('Authentication disabled. Forcing localhost-only access for security.');
-    return '127.0.0.1';
+    return globalConfig.listenAddress === '::1' ? '::1' : '127.0.0.1';
   }
   
   const address = globalConfig.listenAddress || '127.0.0.1';
-  if (address !== '127.0.0.1') {
+  if (address !== '127.0.0.1' && address !== '::1') {
     logger.info(`Authentication enabled. Allowing network access on: ${address}`);
   }
   
