@@ -19,7 +19,7 @@
     "dev:custom": "nodemon --exec \"npm run build && node dist/src/index.js --config $npm_config_path\" --ext ts --ignore dist/ --ignore \"*.json\"",
     "watch": "node dist/src/index.js --watch",
     "watch:debug": "node dist/src/index.js --watch --debug",
-    "test": "npm run build && echo \"Build successful - no tests specified yet\"",
+    "test": "npm run build && node --test dist/tests",
     "prepublishOnly": "npm run build",
     "docker:build": "./docker/build.sh --action build",
     "docker:build:dev": "./docker/build.sh --action build --env development",
