@@ -19,7 +19,7 @@
   - [x] `src/config/config-validation.ts` - 設定検証システム
   - [x] `SecurityValidator` - パスインジェクション防止
   - [x] `PathValidator` - パス形式検証
-  - [ ] 動的制約検証システム
+  - [x] 動的制約検証システム
 
 ### 1.1 認証設定管理
 - [ ] `src/config/auth-config.ts` - 認証設定の読み込みと検証

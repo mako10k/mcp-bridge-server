@@ -124,17 +124,18 @@ export class ConfigValidator {
   }
 
   async validateUserSetting(
-    _key: string,
+    key: string,
     value: any,
     definition: SettingDefinition,
-    authContext: AuthContext
+    authContext: AuthContext,
+    context: Record<string, any> = {}
   ): Promise<void> {
     await this.validateType(value, definition.type);
     await this.validateConstraints(value, definition.constraints);
     if (definition.dynamicConstraints) {
-      // Not fully implemented
+      await this.validateDynamicConstraints(value, definition.dynamicConstraints, context);
     }
-    await this.securityValidator.validateUserValue(_key, value, definition, authContext);
+    await this.securityValidator.validateUserValue(key, value, definition, authContext);
   }
 
   async validateFinalConfig(config: MCPServerConfig, authContext: AuthContext): Promise<void> {
@@ -199,6 +200,24 @@ export class ConfigValidator {
     }
     if (constraints.values && !constraints.values.includes(value)) {
       throw new ValidationError(`Invalid value: ${value}. Allowed: ${constraints.values.join(', ')}`);
+    }
+  }
+
+  private async validateDynamicConstraints(
+    value: any,
+    dynamic: { dependsOn: string; rules: ConstraintRule[] },
+    context: Record<string, any>
+  ): Promise<void> {
+    const dependsValue = context[dynamic.dependsOn];
+    for (const rule of dynamic.rules) {
+      if (rule.when === dependsValue) {
+        if (rule.then.type) {
+          await this.validateType(value, rule.then.type);
+        }
+        if (rule.then.constraints) {
+          await this.validateConstraints(value, rule.then.constraints);
+        }
+      }
     }
   }
 

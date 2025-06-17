@@ -93,13 +93,14 @@ export class ConfigTemplateEngine {
       if (!def) {
         throw new ValidationError(`Unknown setting: ${key}`);
       }
-      await this.validator.validateUserSetting(key, value, def, authContext);
+      await this.validator.validateUserSetting(key, value, def, authContext, userSettings);
       await this.applyUserSetting(result, key, value, def, authContext);
     }
 
     for (const [key, def] of Object.entries(template.environmentVariables.userCustomizable)) {
       const val = (userSettings.environmentVariables && userSettings.environmentVariables[key]) ?? def.default;
-      await this.validator.validateUserSetting(key, val, def, authContext);
+      const envContext = userSettings.environmentVariables || {};
+      await this.validator.validateUserSetting(key, val, def, authContext, envContext);
       const expanded = this.expandTemplateVariables(val, authContext);
       if (!result.env) result.env = {};
       result.env[key] = String(expanded);
