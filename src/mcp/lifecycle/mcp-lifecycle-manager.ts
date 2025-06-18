@@ -122,8 +122,8 @@ export class MCPLifecycleManager extends EventEmitter {
     this.cleanup.stop();
   }
 
-  stopMonitoring(): void {
-    this.monitor.stop();
+  async stopMonitoring(): Promise<void> {
+    await this.monitor.stop();
   }
 }
 

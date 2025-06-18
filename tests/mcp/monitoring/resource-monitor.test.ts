@@ -15,7 +15,7 @@ test('resource monitor records usage metrics', async () => {
   monitor.addProcess('p1', proc);
   monitor.start();
   await sleep(200);
-  monitor.stop();
+  await monitor.stop();
   proc.kill();
   await new Promise(res => proc.on('exit', res));
   const entries = metrics.getInstanceMetrics('p1');

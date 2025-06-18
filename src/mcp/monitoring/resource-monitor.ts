@@ -14,6 +14,7 @@ export interface ResourceMonitorOptions {
 export class ResourceMonitor extends EventEmitter {
   private readonly intervalMs: number;
   private interval: NodeJS.Timeout | null = null;
+  private activePolls = 0;
   private readonly metrics: InstanceMetrics;
   private processes = new Map<string, ChildProcess>();
 
@@ -36,24 +37,33 @@ export class ResourceMonitor extends EventEmitter {
     this.interval = setInterval(() => this.poll(), this.intervalMs);
   }
 
-  stop(): void {
+  async stop(): Promise<void> {
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
     }
+    while (this.activePolls > 0) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    this.processes.clear();
   }
 
   private async poll(): Promise<void> {
-    for (const [id, proc] of this.processes.entries()) {
-      const pid = proc.pid;
-      if (!pid) continue;
-      try {
-        const usage = await pidusage(pid);
-        const memoryMB = Math.round(usage.memory / (1024 * 1024));
-        this.metrics.recordResourceUsage(id, memoryMB, usage.cpu);
-      } catch (err) {
-        this.emit('error', err as Error);
+    this.activePolls++;
+    try {
+      for (const [id, proc] of this.processes.entries()) {
+        const pid = proc.pid;
+        if (!pid) continue;
+        try {
+          const usage = await pidusage(pid);
+          const memoryMB = Math.round(usage.memory / (1024 * 1024));
+          this.metrics.recordResourceUsage(id, memoryMB, usage.cpu);
+        } catch (err) {
+          this.emit('error', err as Error);
+        }
       }
+    } finally {
+      this.activePolls--;
     }
   }
 }
