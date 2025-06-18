@@ -71,7 +71,7 @@ Before starting any implementation, **MUST READ** these design documents in orde
   - [x] Core type definitions (`src/mcp/lifecycle/types.ts`)
   - [x] Lifecycle mode definitions (Global/User/Session)
   - [x] MCPInstanceContext interface implementation
-  - [ ] Main MCPLifecycleManager integration
+  - [x] Main MCPLifecycleManager integration
 
 - [x] **Path Template System**
   - [x] PathTemplateResolver implementation (`src/mcp/templates/path-template-resolver.ts`)
@@ -230,6 +230,6 @@ If you encounter:
 
 ---
 
-**Last Updated**: 2025年6月18日 (Auth routes & lifecycle foundation implemented)
+**Last Updated**: 2025年6月20日 (Lifecycle manager integration complete)
 **Current Phase**: Phase 1.5 - MCP Lifecycle Management (IN PROGRESS)
 **Next Milestone**: Complete lifecycle management integration
