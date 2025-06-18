@@ -225,9 +225,9 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
 - [ ] X-Frame-Options
 
 ### CORS設定
-- [ ] `src/middleware/cors-middleware.ts`
-- [ ] オリジン制限
-- [ ] 認証情報付きリクエスト対応
+ - [x] `src/middleware/cors-middleware.ts`
+ - [x] オリジン制限
+ - [x] 認証情報付きリクエスト対応
 
 ### 入力検証
 - [ ] Zod スキーマによるリクエスト検証

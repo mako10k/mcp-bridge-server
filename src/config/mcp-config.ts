@@ -89,6 +89,12 @@ export const MCPConfigSchema = z.object({
       listenAddress: z.string().default('127.0.0.1'),
       trustedProxies: z.array(z.string()).default([]),
     }).default({ allowExternalAccess: false, listenAddress: '127.0.0.1', trustedProxies: [] }),
+    cors: z
+      .object({
+        allowedOrigins: z.array(z.string()).default(['*']),
+        allowCredentials: z.boolean().default(false),
+      })
+      .default({ allowedOrigins: ['*'], allowCredentials: false }),
   }).optional(),
   auth: AuthConfigSchema.optional(),
 });
@@ -191,6 +197,10 @@ export function getDefaultConfig(): MCPConfig {
         allowExternalAccess: false,
         listenAddress: '127.0.0.1',
         trustedProxies: [],
+      },
+      cors: {
+        allowedOrigins: ['*'],
+        allowCredentials: false,
       },
     },
     auth: {
