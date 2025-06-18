@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import express from 'express';
-import cors from 'cors';
+import { createCorsMiddleware } from './middleware/cors-middleware.js';
 import { loadMCPConfig } from './config/mcp-config.js';
 import { listenAddressSecurityManager } from './config/listen-address-security.js';
 import { MCPBridgeManager } from './mcp-bridge-manager.js';
@@ -54,7 +54,8 @@ const port = Number(process.env.PORT || mcpConfig.global?.httpPort || 3000);
 currentPort = port;
 
 // Middleware
-app.use(cors());
+const corsConf = mcpConfig.security?.cors || { allowedOrigins: ['*'], allowCredentials: false };
+app.use(createCorsMiddleware(corsConf));
 app.use(express.json());
 
 // Initialize MCP Bridge Manager and Tool Registry
