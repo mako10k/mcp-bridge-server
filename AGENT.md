@@ -81,15 +81,15 @@ Before starting any implementation, **MUST READ** these design documents in orde
 - [x] **Instance Management Foundation**
   - [x] GlobalInstanceManager - shared instance management (`src/mcp/lifecycle/global-instance-manager.ts`)
   - [x] UserInstanceManager - user-specific instances (`src/mcp/lifecycle/user-instance-manager.ts`)
-  - [ ] SessionInstanceManager - session-specific instances
-  - [ ] Main lifecycle manager integration
+  - [x] SessionInstanceManager - session-specific instances
+  - [x] Main lifecycle manager integration
 
 #### 1.5.2 Security & Resource Management (PENDING)
 - [ ] **Resource Limits**
   - [ ] User-specific maximum instance limits
   - [ ] Session-specific maximum instance limits
   - [ ] Instance timeout functionality
-  - [ ] Resource monitoring integration
+  - [x] Resource monitoring integration
 
 - [ ] **Security Enhancement**
   - [x] Path injection attack prevention
@@ -98,14 +98,14 @@ Before starting any implementation, **MUST READ** these design documents in orde
 
 #### 1.5.3 Monitoring & Operations (PENDING)
 - [ ] **Instance Monitoring**
-  - [ ] Instance metrics collection
-  - [ ] Automatic cleanup functionality
+  - [x] Instance metrics collection
+  - [x] Automatic cleanup functionality
   - [ ] Admin UI integration for status display
 
 - [ ] **Logging & Audit**
   - [ ] Instance creation/deletion logs
   - [ ] User-specific access logs
-  - [ ] Resource usage logs
+  - [x] Resource usage logs
 
 ## 📋 Progress Tracking
 
@@ -222,9 +222,9 @@ If you encounter:
 ## 🎯 Current Focus
 
 **NEXT IMMEDIATE TASK**: Complete MCP Lifecycle Management Phase 1.5 ✅
-1. Implement SessionInstanceManager
-2. Create main MCPLifecycleManager integration
-3. Add resource monitoring and cleanup
+1. ~~Implement SessionInstanceManager~~ ✅
+2. ~~Create main MCPLifecycleManager integration~~ ✅
+3. ~~Add resource monitoring and cleanup~~ ✅
 4. Update `docs/oidc-oauth2-checklist.md` progress
 5. Test lifecycle management with existing MCP bridge
 
