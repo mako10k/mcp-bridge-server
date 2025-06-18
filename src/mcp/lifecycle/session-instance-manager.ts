@@ -213,7 +213,7 @@ export class SessionInstanceManager extends EventEmitter implements InstanceMana
   /**
    * Cleanup unused session instances
    */
-  async cleanup(): Promise<void> {
+  async cleanup(): Promise<number> {
     const now = new Date();
     const cleanupPromises: Promise<void>[] = [];
 
@@ -237,6 +237,8 @@ export class SessionInstanceManager extends EventEmitter implements InstanceMana
       await Promise.all(cleanupPromises);
       logger.info(`Cleaned up ${cleanupPromises.length} session instances`);
     }
+
+    return cleanupPromises.length;
   }
 
   /**

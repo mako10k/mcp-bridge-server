@@ -123,7 +123,12 @@ export interface InstanceManager {
   createInstance(config: MCPServerConfig, context: MCPInstanceContext): Promise<MCPServerInstance>;
   stopInstance(key: InstanceKey): Promise<void>;
   listInstances(filter?: Partial<InstanceKey>): MCPServerInstance[];
-  cleanup(): Promise<void>;
+  /**
+   * Cleanup idle or expired instances.
+   *
+   * @returns number of instances removed
+   */
+  cleanup(): Promise<number>;
 }
 
 /**

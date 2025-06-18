@@ -186,7 +186,7 @@ export class GlobalInstanceManager extends EventEmitter implements InstanceManag
   /**
    * Cleanup unused instances
    */
-  async cleanup(): Promise<void> {
+  async cleanup(): Promise<number> {
     const now = new Date();
     const cleanupPromises: Promise<void>[] = [];
 
@@ -208,6 +208,8 @@ export class GlobalInstanceManager extends EventEmitter implements InstanceManag
       await Promise.all(cleanupPromises);
       logger.info(`Cleaned up ${cleanupPromises.length} global instances`);
     }
+
+    return cleanupPromises.length;
   }
 
   /**
