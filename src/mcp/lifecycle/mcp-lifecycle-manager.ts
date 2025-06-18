@@ -16,12 +16,20 @@ import { InstanceCleanup } from './instance-cleanup.js';
  * Main lifecycle manager coordinating global, user and session instances.
  */
 export class MCPLifecycleManager extends EventEmitter {
+  private static instance: MCPLifecycleManager;
   private globalManager = new GlobalInstanceManager();
   private userManager = new UserInstanceManager();
   private sessionManager = new SessionInstanceManager();
   private metrics = new InstanceMetrics();
   private monitor: ResourceMonitor;
   private cleanup: InstanceCleanup;
+
+  static getInstance(): MCPLifecycleManager {
+    if (!MCPLifecycleManager.instance) {
+      MCPLifecycleManager.instance = new MCPLifecycleManager();
+    }
+    return MCPLifecycleManager.instance;
+  }
 
   constructor(cleanupIntervalMs = 10 * 60 * 1000) {
     super();
