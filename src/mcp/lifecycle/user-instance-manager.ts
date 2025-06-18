@@ -212,7 +212,7 @@ export class UserInstanceManager extends EventEmitter implements InstanceManager
   /**
    * Cleanup unused user instances
    */
-  async cleanup(): Promise<void> {
+  async cleanup(): Promise<number> {
     const now = new Date();
     const cleanupPromises: Promise<void>[] = [];
 
@@ -235,6 +235,8 @@ export class UserInstanceManager extends EventEmitter implements InstanceManager
       await Promise.all(cleanupPromises);
       logger.info(`Cleaned up ${cleanupPromises.length} user instances`);
     }
+
+    return cleanupPromises.length;
   }
 
   /**

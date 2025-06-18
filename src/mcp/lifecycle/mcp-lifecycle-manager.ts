@@ -90,17 +90,19 @@ export class MCPLifecycleManager extends EventEmitter {
   }
 
   private startCleanupTask(intervalMs: number): void {
-    this.cleanupInterval = setInterval(() => {
+    this.cleanupInterval = setInterval(async () => {
       this.emit('cleanup-started');
-      Promise.all([
-        this.globalManager.cleanup(),
-        this.userManager.cleanup(),
-        this.sessionManager.cleanup()
-      ]).then(() => {
-        this.emit('cleanup-completed', 0);
-      }).catch((err) => {
-        this.emit('instance-error', { id: 'cleanup' } as any, err);
-      });
+      try {
+        const [g, u, s] = await Promise.all([
+          this.globalManager.cleanup(),
+          this.userManager.cleanup(),
+          this.sessionManager.cleanup()
+        ]);
+        const removed = g + u + s;
+        this.emit('cleanup-completed', removed);
+      } catch (err) {
+        this.emit('instance-error', { id: 'cleanup' } as any, err as Error);
+      }
     }, intervalMs);
   }
 
