@@ -46,5 +46,14 @@ export abstract class BaseProvider {
     return this.requestToken(params);
   }
 
+  async refreshToken(refreshToken: string): Promise<OIDCTokenResponse> {
+    const params = {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: this.config.clientId
+    };
+    return this.requestToken(params);
+  }
+
   abstract getUserInfo(accessToken: string): Promise<OIDCUserInfo | undefined>;
 }

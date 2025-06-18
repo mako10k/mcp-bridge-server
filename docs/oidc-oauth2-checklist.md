@@ -48,7 +48,7 @@
   - [x] `POST /auth/logout` - ログアウト
   - [x] `GET /auth/user` - ユーザー情報取得
   - [x] `GET /auth/status` - 認証ステータス確認
-  - [x] `POST /auth/refresh` - トークンリフレッシュ（TODO実装）
+  - [x] `POST /auth/refresh` - トークンリフレッシュ
 
 ### 1.5 テスト
 - [ ] 認証設定の単体テスト
