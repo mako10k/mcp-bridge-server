@@ -76,12 +76,31 @@ export const callToolHandler = (context: ToolRouteContext) =>
 /**
  * Register tool management routes
  */
+export interface AuthHandlers {
+  requireAuth: express.RequestHandler;
+  requirePermission: (permission: string) => express.RequestHandler;
+}
+
 export const registerToolRoutes = (
-  app: express.Application, 
-  context: ToolRouteContext
+  app: express.Application,
+  context: ToolRouteContext,
+  auth?: AuthHandlers
 ): void => {
-  app.get('/mcp/tools', getAllToolsHandler(context));
-  app.get('/mcp/conflicts', getToolConflictsHandler(context));
-  app.get('/mcp/servers/:serverId/tools', listServerToolsHandler(context));
-  app.post('/mcp/servers/:serverId/tools/call', callToolHandler(context));
+  const requireAuth = auth?.requireAuth ?? ((_req, _res, next) => next());
+  const requirePerm = auth?.requirePermission ?? (() => (_req, _res, next) => next());
+
+  app.get('/mcp/tools', requireAuth, requirePerm('read'), getAllToolsHandler(context));
+  app.get('/mcp/conflicts', requireAuth, requirePerm('read'), getToolConflictsHandler(context));
+  app.get(
+    '/mcp/servers/:serverId/tools',
+    requireAuth,
+    requirePerm('read'),
+    listServerToolsHandler(context)
+  );
+  app.post(
+    '/mcp/servers/:serverId/tools/call',
+    requireAuth,
+    requirePerm('execute'),
+    callToolHandler(context)
+  );
 };

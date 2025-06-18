@@ -6,6 +6,11 @@ export interface ResourceRouteContext {
   mcpManager: MCPBridgeManager;
 }
 
+export interface AuthHandlers {
+  requireAuth: express.RequestHandler;
+  requirePermission: (permission: string) => express.RequestHandler;
+}
+
 /**
  * List resources from a specific MCP server handler
  */
@@ -40,9 +45,23 @@ export const readServerResourceHandler = (context: ResourceRouteContext) =>
  * Register resource management routes
  */
 export const registerResourceRoutes = (
-  app: express.Application, 
-  context: ResourceRouteContext
+  app: express.Application,
+  context: ResourceRouteContext,
+  auth?: AuthHandlers
 ): void => {
-  app.get('/mcp/servers/:serverId/resources', listServerResourcesHandler(context));
-  app.get('/mcp/servers/:serverId/resources/:resourceUri', readServerResourceHandler(context));
+  const requireAuth = auth?.requireAuth ?? ((_req, _res, next) => next());
+  const requirePerm = auth?.requirePermission ?? (() => (_req, _res, next) => next());
+
+  app.get(
+    '/mcp/servers/:serverId/resources',
+    requireAuth,
+    requirePerm('read'),
+    listServerResourcesHandler(context)
+  );
+  app.get(
+    '/mcp/servers/:serverId/resources/:resourceUri',
+    requireAuth,
+    requirePerm('read'),
+    readServerResourceHandler(context)
+  );
 };

@@ -152,13 +152,13 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
   - [ ] 動的権限チェック
 
 ### 3.2 既存ルートの更新
-- [ ] `src/routes/health.ts` - パブリックアクセス維持
-- [ ] `src/routes/mcp-servers.ts` - viewer権限以上
-- [ ] `src/routes/tools.ts` - viewer権限以上（実行はoperator）
-- [ ] `src/routes/tool-aliases.ts` - operator権限以上
-- [ ] `src/routes/config.ts` - admin権限必須
-- [ ] `src/routes/logs.ts` - viewer権限以上
-- [ ] `src/routes/server-management.ts` - admin権限必須
+- [x] `src/routes/health.ts` - パブリックアクセス維持
+- [x] `src/routes/mcp-servers.ts` - viewer権限以上
+- [x] `src/routes/tools.ts` - viewer権限以上（実行はoperator）
+- [x] `src/routes/tool-aliases.ts` - operator権限以上
+- [x] `src/routes/config.ts` - admin権限必須
+- [x] `src/routes/logs.ts` - viewer権限以上
+- [x] `src/routes/server-management.ts` - admin権限必須
 
 ### 3.3 コンテキスト強化
 - [ ] 各ルートハンドラーにユーザー情報を渡すよう更新
