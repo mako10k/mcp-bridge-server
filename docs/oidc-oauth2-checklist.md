@@ -144,7 +144,7 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
 ### 3.1 認証ミドルウェア
 - [x] `src/middleware/auth-middleware.ts` - JWT検証ミドルウェア
   - [x] Bearer トークン検証
-  - [ ] Cookie セッション検証
+  - [x] Cookie セッション検証
   - [x] エラーハンドリング
 - [x] `src/middleware/rbac-middleware.ts` - 権限チェック
   - [x] ロールベースアクセス制御

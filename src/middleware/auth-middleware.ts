@@ -1,5 +1,15 @@
 import express from 'express';
 import { JWTUtils, TokenPayload } from '../auth/utils/jwt-utils.js';
+import { sessionStore } from '../auth/session-store.js';
+
+function parseCookieHeader(header: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  header.split(';').forEach(part => {
+    const [k, v] = part.trim().split('=');
+    if (k) result[k] = decodeURIComponent(v || '');
+  });
+  return result;
+}
 
 export interface AuthMiddlewareOptions {
   jwtUtils: JWTUtils;
@@ -17,7 +27,23 @@ export function requireAuth(options: AuthMiddlewareOptions): express.RequestHand
     }
 
     const authHeader = req.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    let token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+
+    if (!token) {
+      const cookieHeader = (req as any).cookies?.session_id || parseCookieHeader(req.headers.cookie || '')['session_id'];
+      if (cookieHeader) {
+        const session = sessionStore.get(cookieHeader);
+        token = session?.tokens?.access_token;
+        if (!token && session?.user) {
+          (req as AuthenticatedRequest).user = {
+            sub: session.user.sub,
+            email: session.user.email,
+            roles: []
+          };
+          return next();
+        }
+      }
+    }
 
     if (!token) {
       if (options.mode === 'required') {

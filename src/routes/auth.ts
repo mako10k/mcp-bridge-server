@@ -7,6 +7,7 @@ import express from 'express';
 import { AuthManager, LoginResult } from '../auth/managers/auth-manager.js';
 import { PKCECodes } from '../auth/utils/pkce-utils.js';
 import { OIDCTokenResponse, OIDCUserInfo } from '../auth/types/oidc-types.js';
+import { sessionStore, SessionData } from '../auth/session-store.js';
 import { logger } from '../utils/logger.js';
 
 export interface AuthRouteContext {
@@ -18,16 +19,7 @@ export interface AuthRequest extends express.Request {
   sessionId?: string;
 }
 
-interface SessionData {
-  pkce?: PKCECodes;
-  state?: string;
-  providerId?: string;
-  user?: OIDCUserInfo;
-  tokens?: OIDCTokenResponse;
-}
-
-// Store PKCE codes temporarily (in production, use Redis or database)
-const sessionStore = new Map<string, SessionData>();
+// Session data interface and store are defined in session-store.ts
 
 /**
  * Generate a simple session ID (in production, use proper session middleware)
