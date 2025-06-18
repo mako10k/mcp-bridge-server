@@ -38,7 +38,7 @@
 - [x] `src/auth/providers/base-provider.ts` - プロバイダー基底クラス
  - [x] `src/auth/utils/jwt-utils.ts` - JWT検証/生成ユーティリティ
 - [x] `src/auth/utils/pkce-utils.ts` - PKCE実装
-- [ ] `src/auth/utils/crypto-utils.ts` - 暗号化ユーティリティ
+- [x] `src/auth/utils/crypto-utils.ts` - 暗号化ユーティリティ
 
 ### 1.4 認証フロー実装
 - [ ] `src/auth/managers/auth-manager.ts` - 認証フローの中央管理
