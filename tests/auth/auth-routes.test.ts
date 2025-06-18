@@ -24,7 +24,7 @@ class DummyProvider extends BaseProvider {
     url.searchParams.set('code_challenge_method', pkce.method);
     return url.toString();
   }
-  async getUserInfo(): Promise<undefined> { return undefined; }
+  async getUserInfo(): Promise<{ sub: string }> { return { sub: 'user1' }; }
 }
 
 test('auth routes login and callback flow', async () => {
@@ -52,16 +52,14 @@ test('auth routes login and callback flow', async () => {
       res.on('end', () => resolve(JSON.parse(data)));
     }).on('error', reject);
   });
-  assert.ok(loginData.url.includes('state='));
-  assert.ok(loginData.state);
-  const cbData = await new Promise<any>((resolve, reject) => {
-    http.get(`${base}/auth/callback/dummy?code=abc&state=${loginData.state}`,(res) => {
-      let d = '';
-      res.on('data', c => { d += c; });
-      res.on('end', () => resolve(JSON.parse(d)));
-    }).on('error', reject);
+  assert.ok(loginData.authUrl.includes('state='));
+  assert.ok(loginData.sessionId);
+  const stateParam = new URL(loginData.authUrl).searchParams.get('state');
+  const cbRes = await new Promise<http.IncomingMessage>((resolve, reject) => {
+    http.get(`${base}/auth/callback/dummy?code=abc&state=${stateParam}`,(res) => resolve(res)).on('error', reject);
   });
-  assert.deepEqual(cbData, expected);
+  assert.equal(cbRes.statusCode, 302);
+  assert.ok(cbRes.headers.location?.includes('/admin?auth=success'));
 
   globalThis.fetch = originalFetch;
   await new Promise<void>((resolve) => server.close(() => resolve()));
