@@ -42,11 +42,11 @@
 
 ### 1.4 認証フロー実装
 - [x] `src/auth/managers/auth-manager.ts` - 認証フローの中央管理
-- [ ] `src/routes/auth.ts` - 認証エンドポイント
-  - [ ] `GET /auth/login/:provider` - ログイン開始
-  - [ ] `GET /auth/callback/:provider` - OAuth2コールバック
-  - [ ] `POST /auth/logout` - ログアウト
-  - [ ] `GET /auth/user` - ユーザー情報取得
+- [x] `src/routes/auth.ts` - 認証エンドポイント
+  - [x] `GET /auth/login/:provider` - ログイン開始
+  - [x] `GET /auth/callback/:provider` - OAuth2コールバック
+  - [x] `POST /auth/logout` - ログアウト
+  - [x] `GET /auth/user` - ユーザー情報取得
 
 ### 1.5 テスト
 - [ ] 認証設定の単体テスト

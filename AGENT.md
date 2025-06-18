@@ -194,14 +194,14 @@ If you encounter:
 
 ## 🎯 Current Focus
 
-**NEXT IMMEDIATE TASK**: Implement AuthManager and update checklist ✅
-1. Create `src/auth/managers/auth-manager.ts`
-2. Add basic unit tests
+**NEXT IMMEDIATE TASK**: Implement auth routes and update checklist ✅
+1. Create `src/routes/auth.ts`
+2. Add unit tests for login and callback
 3. Update `docs/oidc-oauth2-checklist.md` progress
 4. Document any issues encountered
 
 ---
 
-**Last Updated**: 2025年6月18日 (AuthManager skeleton added)
+**Last Updated**: 2025年6月18日 (Auth routes implemented)
 **Current Phase**: Phase 1 - Security Foundation
 **Next Milestone**: Configuration Template System
