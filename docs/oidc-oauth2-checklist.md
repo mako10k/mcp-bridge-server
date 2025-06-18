@@ -114,10 +114,10 @@
   - [ ] API テスト
 
 ### 2.1 Google OAuth2
-- [ ] `src/auth/providers/google-provider.ts`
-- [ ] Google People API 連携
-- [ ] プロフィール情報取得
-- [ ] テストケース作成
+- [x] `src/auth/providers/google-provider.ts`
+- [x] Google People API 連携
+- [x] プロフィール情報取得
+- [x] テストケース作成
 
 ### 2.2 Microsoft Azure AD
 - [ ] `src/auth/providers/azure-provider.ts`
