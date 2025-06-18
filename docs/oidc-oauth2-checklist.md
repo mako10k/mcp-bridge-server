@@ -132,9 +132,9 @@
  - [x] テストケース作成
 
 ### 2.4 汎用OIDC
-- [ ] `src/auth/providers/generic-oidc.ts`
-- [ ] OpenID Connect Discovery 対応
-- [ ] カスタムプロバイダー対応
+- [x] `src/auth/providers/generic-oidc.ts`
+- [x] OpenID Connect Discovery 対応
+- [x] カスタムプロバイダー対応
 
 ## Phase 3: API保護とRBAC ⏳
 
