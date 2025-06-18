@@ -62,3 +62,6 @@ export class FileBasedSettingsStore implements UserSettingsStore {
     await fs.mkdir(this.storageDir, { recursive: true }).catch(() => undefined);
   }
 }
+
+export { DatabaseSettingsStore } from './database-settings-store.js';
+export type { Database, QueryResult } from './database-settings-store.js';
