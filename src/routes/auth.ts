@@ -276,10 +276,14 @@ export const refreshTokenHandler = (context: AuthRouteContext) =>
         return;
       }
 
-      // TODO: Implement token refresh logic with the provider
-      // This would require extending the BaseProvider to support refresh tokens
-      
-      res.status(501).json({ error: 'Token refresh not yet implemented' });
+      const tokens = await context.authManager.refreshAccessToken(
+        sessionData.providerId!,
+        sessionData.tokens.refresh_token
+      );
+      sessionData.tokens = tokens;
+      sessionStore.set(sessionId, sessionData);
+
+      res.json({ tokens });
 
     } catch (error) {
       logger.error('Token refresh failed:', error);

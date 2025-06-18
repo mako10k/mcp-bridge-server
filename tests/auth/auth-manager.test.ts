@@ -56,3 +56,18 @@ test('AuthManager.handleCallback exchanges code using provider', async () => {
 
   globalThis.fetch = originalFetch;
 });
+
+test('AuthManager.refreshAccessToken uses provider', async () => {
+  const manager = new AuthManager();
+  const provider = new DummyProvider('dummy', { clientId: 'id', clientSecret: 'secret', redirectUri: 'https://app/cb' });
+  manager.registerProvider(provider);
+
+  const expected = { access_token: 'newtoken', token_type: 'Bearer' };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify(expected), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  const res = await manager.refreshAccessToken('dummy', 'r1');
+  assert.deepEqual(res, expected);
+
+  globalThis.fetch = originalFetch;
+});

@@ -45,4 +45,12 @@ export class AuthManager {
     const provider = this.getProvider(providerId);
     return provider.getUserInfo(accessToken);
   }
+
+  async refreshAccessToken(
+    providerId: string,
+    refreshToken: string
+  ): Promise<OIDCTokenResponse> {
+    const provider = this.getProvider(providerId);
+    return provider.refreshToken(refreshToken);
+  }
 }

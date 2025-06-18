@@ -47,3 +47,31 @@ test('BaseProvider.requestToken sends POST request and parses JSON', async () =>
 
   globalThis.fetch = originalFetch;
 });
+
+test('BaseProvider.refreshToken uses refresh_token grant', async () => {
+  const dummy = new DummyProvider(
+    'dummy',
+    {
+      issuer: 'https://example.com',
+      authorizationEndpoint: 'https://example.com/authorize',
+      tokenEndpoint: 'https://example.com/token',
+      jwksUri: 'https://example.com/jwks'
+    },
+    { clientId: 'abc', clientSecret: 'secret', redirectUri: 'https://app/callback' }
+  );
+
+  const expected = { access_token: 'new', token_type: 'Bearer', expires_in: 3600 };
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (_url: RequestInfo | URL, init?: RequestInit) => {
+    const body = init?.body as string;
+    assert.ok(body.includes('grant_type=refresh_token'));
+    assert.ok(body.includes('refresh_token=r1'));
+    return new Response(JSON.stringify(expected), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+
+  const result = await dummy.refreshToken('r1');
+  assert.deepEqual(result, expected);
+
+  globalThis.fetch = originalFetch;
+});
