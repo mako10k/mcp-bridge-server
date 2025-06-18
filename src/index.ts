@@ -10,6 +10,7 @@ import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
 import { Server } from 'http';
 import net from 'net';
+import { generateKeyPairSync } from 'crypto';
 
 // Import route handlers
 import { registerHealthRoutes } from './routes/health.js';
@@ -25,6 +26,14 @@ import { registerUserConfigRoutes } from './routes/user-config.js';
 import { AuthManager } from './auth/managers/auth-manager.js';
 import { UserConfigManager } from './config/user-config-manager.js';
 import { registerErrorHandler } from './middleware/error-handler.js';
+import { AuthConfigManager } from './config/auth-config.js';
+import { JWTUtils } from './auth/utils/jwt-utils.js';
+import { requireAuth } from './middleware/auth-middleware.js';
+import { createRBACMiddleware } from './middleware/rbac-middleware.js';
+import { GoogleProvider } from './auth/providers/google-provider.js';
+import { AzureProvider } from './auth/providers/azure-provider.js';
+import { GitHubProvider } from './auth/providers/github-provider.js';
+import { GenericOIDCProvider } from './auth/providers/generic-oidc.js';
 
 // Server instance reference for restart functionality
 let server: Server | null = null;
@@ -53,6 +62,88 @@ const mcpManager = new MCPBridgeManager();
 const toolRegistry = new BridgeToolRegistry(mcpManager, mcpConfig, configPath);
 const authManager = new AuthManager();
 const userConfigManager = new UserConfigManager();
+const authConfigManager = new AuthConfigManager(configPath);
+const authConfig = authConfigManager.getConfig();
+
+// Initialize JWT utilities
+let privateKey = process.env.JWT_PRIVATE_KEY;
+let publicKey = process.env.JWT_PUBLIC_KEY;
+if (!privateKey || !publicKey) {
+  const keys = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  privateKey = keys.privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
+  publicKey = keys.publicKey.export({ type: 'pkcs1', format: 'pem' }).toString();
+  logger.warn('JWT keys not provided; generated temporary keys');
+}
+const jwtConf = {
+  issuer: 'mcp-bridge',
+  audience: 'mcp-bridge-api',
+  expiresIn: '1h',
+  ...authConfig.jwt
+};
+const jwtUtils = new JWTUtils(jwtConf as any, privateKey, publicKey);
+
+// Configure providers
+for (const provider of authConfig.providers) {
+  switch (provider.type) {
+    case 'google':
+      authManager.registerProvider(
+        new GoogleProvider({
+          clientId: provider.clientId,
+          clientSecret: provider.clientSecret,
+          redirectUri: provider.redirectUri || '',
+          scope: provider.scope
+        })
+      );
+      break;
+    case 'azure':
+      authManager.registerProvider(
+        new AzureProvider({
+          clientId: provider.clientId,
+          clientSecret: provider.clientSecret,
+          redirectUri: provider.redirectUri || '',
+          scope: provider.scope,
+          tenantId: provider.tenantId || ''
+        })
+      );
+      break;
+    case 'github':
+      authManager.registerProvider(
+        new GitHubProvider({
+          clientId: provider.clientId,
+          clientSecret: provider.clientSecret,
+          redirectUri: provider.redirectUri || '',
+          scope: provider.scope
+        })
+      );
+      break;
+    case 'oidc': {
+      const p = new GenericOIDCProvider({
+        clientId: provider.clientId,
+        clientSecret: provider.clientSecret,
+        redirectUri: provider.redirectUri || '',
+        scope: provider.scope,
+        issuer: (provider as any).issuer || '',
+        discovery: true
+      });
+      await p.init().catch((err) => logger.error('OIDC provider init failed', err));
+      authManager.registerProvider(p);
+      break;
+    }
+  }
+}
+
+const requireAuthMiddleware = requireAuth({ jwtUtils, mode: authConfig.mode });
+const requirePermission = createRBACMiddleware(
+  (authConfig.rbac as any) || {
+    defaultRole: 'viewer',
+    roles: {
+      viewer: { id: 'viewer', name: 'Viewer', permissions: ['read'], isSystemRole: true },
+      admin: { id: 'admin', name: 'Admin', permissions: ['*'], isSystemRole: true }
+    }
+  }
+);
+
+const authHandlers = { requireAuth: requireAuthMiddleware, requirePermission };
 // Set reference to the tool registry
 mcpManager.setToolRegistry(toolRegistry);
 
@@ -129,19 +220,19 @@ async function performGracefulShutdown(): Promise<void> {
 
 // Register all routes
 registerHealthRoutes(app, { currentPort });
-registerMCPServerRoutes(app, { mcpManager });
-registerToolRoutes(app, { mcpManager });
-registerToolAliasRoutes(app, { toolRegistry });
-registerResourceRoutes(app, { mcpManager });
+registerMCPServerRoutes(app, { mcpManager }, authHandlers);
+registerToolRoutes(app, { mcpManager }, authHandlers);
+registerToolAliasRoutes(app, { toolRegistry }, authHandlers);
+registerResourceRoutes(app, { mcpManager }, authHandlers);
 registerAuthRoutes(app, { authManager });
-registerUserConfigRoutes(app, { userConfigManager });
-registerConfigRoutes(app, { toolRegistry, mcpManager, restartServerOnNewPort });
-registerLogRoutes(app);
-registerServerManagementRoutes(app, { 
-  currentPort, 
-  restartServerOnNewPort, 
-  performGracefulShutdown 
-});
+registerUserConfigRoutes(app, { userConfigManager }, authHandlers);
+registerConfigRoutes(app, { toolRegistry, mcpManager, restartServerOnNewPort }, authHandlers);
+registerLogRoutes(app, authHandlers);
+registerServerManagementRoutes(app, {
+  currentPort,
+  restartServerOnNewPort,
+  performGracefulShutdown
+}, authHandlers);
 
 // Register error handling middleware
 registerErrorHandler(app);

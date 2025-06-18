@@ -6,6 +6,11 @@ export interface ToolAliasRouteContext {
   toolRegistry: BridgeToolRegistry;
 }
 
+export interface AuthHandlers {
+  requireAuth: express.RequestHandler;
+  requirePermission: (permission: string) => express.RequestHandler;
+}
+
 /**
  * List all tool aliases handler
  */
@@ -109,13 +114,47 @@ export const updateToolAliasHandler = (context: ToolAliasRouteContext) =>
  * Register tool alias management routes
  */
 export const registerToolAliasRoutes = (
-  app: express.Application, 
-  context: ToolAliasRouteContext
+  app: express.Application,
+  context: ToolAliasRouteContext,
+  auth?: AuthHandlers
 ): void => {
-  app.get('/mcp/tool-aliases', listToolAliasesHandler(context) as express.RequestHandler);
-  app.post('/mcp/tool-aliases', createToolAliasHandler(context) as express.RequestHandler);
-  app.delete('/mcp/tool-aliases/:aliasName', removeToolAliasHandler(context) as express.RequestHandler);
-  app.get('/mcp/tool-aliases/explicit', listExplicitToolAliasesHandler(context) as express.RequestHandler);
-  app.get('/mcp/tool-aliases/auto-discovery', listAutoDiscoveryToolAliasesHandler(context) as express.RequestHandler);
-  app.put('/mcp/tool-aliases/:aliasName', updateToolAliasHandler(context) as express.RequestHandler);
+  const requireAuth = auth?.requireAuth ?? ((_req, _res, next) => next());
+  const requirePerm = auth?.requirePermission ?? (() => (_req, _res, next) => next());
+
+  app.get(
+    '/mcp/tool-aliases',
+    requireAuth,
+    requirePerm('read'),
+    listToolAliasesHandler(context) as express.RequestHandler
+  );
+  app.post(
+    '/mcp/tool-aliases',
+    requireAuth,
+    requirePerm('write'),
+    createToolAliasHandler(context) as express.RequestHandler
+  );
+  app.delete(
+    '/mcp/tool-aliases/:aliasName',
+    requireAuth,
+    requirePerm('write'),
+    removeToolAliasHandler(context) as express.RequestHandler
+  );
+  app.get(
+    '/mcp/tool-aliases/explicit',
+    requireAuth,
+    requirePerm('read'),
+    listExplicitToolAliasesHandler(context) as express.RequestHandler
+  );
+  app.get(
+    '/mcp/tool-aliases/auto-discovery',
+    requireAuth,
+    requirePerm('read'),
+    listAutoDiscoveryToolAliasesHandler(context) as express.RequestHandler
+  );
+  app.put(
+    '/mcp/tool-aliases/:aliasName',
+    requireAuth,
+    requirePerm('write'),
+    updateToolAliasHandler(context) as express.RequestHandler
+  );
 };

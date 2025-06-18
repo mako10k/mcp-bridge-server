@@ -32,7 +32,18 @@ export const clearLogsHandler = async (req: express.Request, res: express.Respon
 /**
  * Register log management routes
  */
-export const registerLogRoutes = (app: express.Application): void => {
-  app.get('/mcp/logs', getLogsHandler as express.RequestHandler);
-  app.delete('/mcp/logs', clearLogsHandler as express.RequestHandler);
+export interface AuthHandlers {
+  requireAuth: express.RequestHandler;
+  requirePermission: (permission: string) => express.RequestHandler;
+}
+
+export const registerLogRoutes = (
+  app: express.Application,
+  auth?: AuthHandlers
+): void => {
+  const requireAuth = auth?.requireAuth ?? ((_req, _res, next) => next());
+  const requirePerm = auth?.requirePermission ?? (() => (_req, _res, next) => next());
+
+  app.get('/mcp/logs', requireAuth, requirePerm('read'), getLogsHandler as express.RequestHandler);
+  app.delete('/mcp/logs', requireAuth, requirePerm('write'), clearLogsHandler as express.RequestHandler);
 };

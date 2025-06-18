@@ -9,6 +9,11 @@ export interface ConfigRouteContext {
   restartServerOnNewPort: (port: number) => Promise<void>;
 }
 
+export interface AuthHandlers {
+  requireAuth: express.RequestHandler;
+  requirePermission: (permission: string) => express.RequestHandler;
+}
+
 /**
  * Get all server configurations handler
  */
@@ -230,21 +235,70 @@ export const updateToolDiscoveryRulesHandler = (context: ConfigRouteContext) =>
  * Register configuration management routes
  */
 export const registerConfigRoutes = (
-  app: express.Application, 
-  context: ConfigRouteContext
+  app: express.Application,
+  context: ConfigRouteContext,
+  auth?: AuthHandlers
 ): void => {
+  const requireAuth = auth?.requireAuth ?? ((_req, _res, next) => next());
+  const requirePerm = auth?.requirePermission ?? (() => (_req, _res, next) => next());
+
   // Server configuration routes
-  app.get('/mcp/config/servers', getAllServerConfigsHandler(context) as express.RequestHandler);
-  app.get('/mcp/config/servers/:serverId', getServerConfigHandler(context) as express.RequestHandler);
-  app.post('/mcp/config/servers', addServerConfigHandler(context) as express.RequestHandler);
-  app.put('/mcp/config/servers/:serverId', updateServerConfigHandler(context) as express.RequestHandler);
-  app.delete('/mcp/config/servers/:serverId', removeServerConfigHandler(context) as express.RequestHandler);
-  
+  app.get(
+    '/mcp/config/servers',
+    requireAuth,
+    requirePerm('config'),
+    getAllServerConfigsHandler(context) as express.RequestHandler
+  );
+  app.get(
+    '/mcp/config/servers/:serverId',
+    requireAuth,
+    requirePerm('config'),
+    getServerConfigHandler(context) as express.RequestHandler
+  );
+  app.post(
+    '/mcp/config/servers',
+    requireAuth,
+    requirePerm('config'),
+    addServerConfigHandler(context) as express.RequestHandler
+  );
+  app.put(
+    '/mcp/config/servers/:serverId',
+    requireAuth,
+    requirePerm('config'),
+    updateServerConfigHandler(context) as express.RequestHandler
+  );
+  app.delete(
+    '/mcp/config/servers/:serverId',
+    requireAuth,
+    requirePerm('config'),
+    removeServerConfigHandler(context) as express.RequestHandler
+  );
+
   // Global configuration routes
-  app.get('/mcp/config/global', getGlobalConfigHandler(context) as express.RequestHandler);
-  app.put('/mcp/config/global', updateGlobalConfigHandler(context) as express.RequestHandler);
-  
+  app.get(
+    '/mcp/config/global',
+    requireAuth,
+    requirePerm('config'),
+    getGlobalConfigHandler(context) as express.RequestHandler
+  );
+  app.put(
+    '/mcp/config/global',
+    requireAuth,
+    requirePerm('config'),
+    updateGlobalConfigHandler(context) as express.RequestHandler
+  );
+
   // Tool discovery rules routes
-  app.get('/mcp/config/discovery-rules', getToolDiscoveryRulesHandler(context) as express.RequestHandler);
-  app.put('/mcp/config/discovery-rules', updateToolDiscoveryRulesHandler(context) as express.RequestHandler);
+  app.get(
+    '/mcp/config/discovery-rules',
+    requireAuth,
+    requirePerm('config'),
+    getToolDiscoveryRulesHandler(context) as express.RequestHandler
+  );
+  app.put(
+    '/mcp/config/discovery-rules',
+    requireAuth,
+    requirePerm('config'),
+    updateToolDiscoveryRulesHandler(context) as express.RequestHandler
+  );
 };

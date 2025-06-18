@@ -70,12 +70,41 @@ export const retryAllServersHandler = (context: MCPServerRouteContext) =>
 /**
  * Register MCP server management routes
  */
+export interface AuthHandlers {
+  requireAuth: express.RequestHandler;
+  requirePermission: (permission: string) => express.RequestHandler;
+}
+
 export const registerMCPServerRoutes = (
-  app: express.Application, 
-  context: MCPServerRouteContext
+  app: express.Application,
+  context: MCPServerRouteContext,
+  auth?: AuthHandlers
 ): void => {
-  app.get('/mcp/servers', getMCPServersHandler(context));
-  app.get('/mcp/servers/:serverId/status', getServerStatusHandler(context) as express.RequestHandler);
-  app.post('/mcp/servers/:serverId/retry', retryServerHandler(context));
-  app.post('/mcp/servers/retry-all', retryAllServersHandler(context));
+  const requireAuth = auth?.requireAuth ?? ((_req, _res, next) => next());
+  const requirePerm = auth?.requirePermission ?? (() => (_req, _res, next) => next());
+
+  app.get(
+    '/mcp/servers',
+    requireAuth,
+    requirePerm('read'),
+    getMCPServersHandler(context)
+  );
+  app.get(
+    '/mcp/servers/:serverId/status',
+    requireAuth,
+    requirePerm('read'),
+    getServerStatusHandler(context) as express.RequestHandler
+  );
+  app.post(
+    '/mcp/servers/:serverId/retry',
+    requireAuth,
+    requirePerm('execute'),
+    retryServerHandler(context)
+  );
+  app.post(
+    '/mcp/servers/retry-all',
+    requireAuth,
+    requirePerm('execute'),
+    retryAllServersHandler(context)
+  );
 };

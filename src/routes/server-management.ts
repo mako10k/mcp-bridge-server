@@ -7,6 +7,11 @@ export interface ServerManagementRouteContext {
   performGracefulShutdown: () => Promise<void>;
 }
 
+export interface AuthHandlers {
+  requireAuth: express.RequestHandler;
+  requirePermission: (permission: string) => express.RequestHandler;
+}
+
 /**
  * Restart server handler
  */
@@ -70,9 +75,23 @@ export const shutdownServerHandler = (context: ServerManagementRouteContext) =>
  * Register server management routes
  */
 export const registerServerManagementRoutes = (
-  app: express.Application, 
-  context: ServerManagementRouteContext
+  app: express.Application,
+  context: ServerManagementRouteContext,
+  auth?: AuthHandlers
 ): void => {
-  app.post('/mcp/server/restart', restartServerHandler(context) as express.RequestHandler);
-  app.post('/mcp/server/shutdown', shutdownServerHandler(context) as express.RequestHandler);
+  const requireAuth = auth?.requireAuth ?? ((_req, _res, next) => next());
+  const requirePerm = auth?.requirePermission ?? (() => (_req, _res, next) => next());
+
+  app.post(
+    '/mcp/server/restart',
+    requireAuth,
+    requirePerm('restart'),
+    restartServerHandler(context) as express.RequestHandler
+  );
+  app.post(
+    '/mcp/server/shutdown',
+    requireAuth,
+    requirePerm('restart'),
+    shutdownServerHandler(context) as express.RequestHandler
+  );
 };

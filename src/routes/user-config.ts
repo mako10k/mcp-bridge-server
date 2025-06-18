@@ -6,6 +6,11 @@ export interface UserConfigRouteContext {
   userConfigManager: UserConfigManager;
 }
 
+export interface AuthHandlers {
+  requireAuth: express.RequestHandler;
+  requirePermission: (permission: string) => express.RequestHandler;
+}
+
 export interface AuthenticatedRequest extends express.Request {
   user?: { id: string; email?: string };
   authContext?: AuthContext;
@@ -152,14 +157,53 @@ export const resetServerSettingsHandler = (context: UserConfigRouteContext) =>
 
 export const registerUserConfigRoutes = (
   app: express.Application,
-  context: UserConfigRouteContext
+  context: UserConfigRouteContext,
+  auth?: AuthHandlers
 ): void => {
-  app.get('/user-config/templates', getTemplatesHandler(context) as express.RequestHandler);
-  app.get('/user-config/settings', getUserSettingsHandler(context) as express.RequestHandler);
-  app.put('/user-config/settings', updateUserSettingsHandler(context) as express.RequestHandler);
-  app.put('/user-config/settings/:templateId', updateServerSettingsHandler(context) as express.RequestHandler);
-  app.patch('/user-config/settings/:templateId/toggle', toggleServerHandler(context) as express.RequestHandler);
-  app.get('/user-config/preview', previewConfigHandler(context) as express.RequestHandler);
-  app.delete('/user-config/settings/:templateId', resetServerSettingsHandler(context) as express.RequestHandler);
+  const requireAuth = auth?.requireAuth ?? ((_req, _res, next) => next());
+  const requirePerm = auth?.requirePermission ?? (() => (_req, _res, next) => next());
+
+  app.get(
+    '/user-config/templates',
+    requireAuth,
+    requirePerm('read'),
+    getTemplatesHandler(context) as express.RequestHandler
+  );
+  app.get(
+    '/user-config/settings',
+    requireAuth,
+    requirePerm('read'),
+    getUserSettingsHandler(context) as express.RequestHandler
+  );
+  app.put(
+    '/user-config/settings',
+    requireAuth,
+    requirePerm('write'),
+    updateUserSettingsHandler(context) as express.RequestHandler
+  );
+  app.put(
+    '/user-config/settings/:templateId',
+    requireAuth,
+    requirePerm('write'),
+    updateServerSettingsHandler(context) as express.RequestHandler
+  );
+  app.patch(
+    '/user-config/settings/:templateId/toggle',
+    requireAuth,
+    requirePerm('write'),
+    toggleServerHandler(context) as express.RequestHandler
+  );
+  app.get(
+    '/user-config/preview',
+    requireAuth,
+    requirePerm('read'),
+    previewConfigHandler(context) as express.RequestHandler
+  );
+  app.delete(
+    '/user-config/settings/:templateId',
+    requireAuth,
+    requirePerm('write'),
+    resetServerSettingsHandler(context) as express.RequestHandler
+  );
 };
 
