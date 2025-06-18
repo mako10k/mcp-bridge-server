@@ -108,7 +108,7 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
 - [x] **永続化システム**
   - [x] `src/storage/user-settings-store.ts` - 設定永続化インターフェース
   - [x] `FileBasedSettingsStore` 実装
-  - [ ] `DatabaseSettingsStore` 実装（オプション）
+  - [x] `DatabaseSettingsStore` 実装（オプション）
   - [x] `src/storage/settings-encryption.ts` - 設定暗号化
 - [x] **ユーザー設定API**
   - [x] `src/routes/user-config.ts` - ユーザー設定APIエンドポイント
