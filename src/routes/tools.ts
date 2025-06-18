@@ -65,7 +65,7 @@ export const callToolHandler = (context: ToolRouteContext) =>
       const { serverId } = req.params;
       const { name, arguments: toolArgs } = CallToolSchema.parse(req.body);
       
-      const result = await context.mcpManager.callTool(serverId, name, toolArgs);
+      const result = await context.mcpManager.callToolWithContext(serverId, name, toolArgs, req);
       res.json({ result });
     } catch (error) {
       logger.error(`Error calling tool on server ${req.params.serverId}:`, error);
