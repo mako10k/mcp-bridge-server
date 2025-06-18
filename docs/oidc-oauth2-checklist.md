@@ -100,20 +100,20 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
 ## Phase 2: プロバイダー実装 ⏳
 
 ### 🛠️ ユーザー設定管理システム
-- [ ] **ユーザー設定マネージャー**
-  - [ ] `src/config/user-config-manager.ts` - ユーザー設定管理
-  - [ ] 設定マージ・オーバーライドロジック
+- [x] **ユーザー設定マネージャー**
+  - [x] `src/config/user-config-manager.ts` - ユーザー設定管理
+  - [x] 設定マージ・オーバーライドロジック
   - [ ] インスタンス更新・再起動連携
-  - [ ] 設定バリデーション統合
-- [ ] **永続化システム**
-  - [ ] `src/storage/user-settings-store.ts` - 設定永続化インターフェース
-  - [ ] `FileBasedSettingsStore` 実装
+  - [x] 設定バリデーション統合
+- [x] **永続化システム**
+  - [x] `src/storage/user-settings-store.ts` - 設定永続化インターフェース
+  - [x] `FileBasedSettingsStore` 実装
   - [ ] `DatabaseSettingsStore` 実装（オプション）
-  - [ ] `src/storage/settings-encryption.ts` - 設定暗号化
-- [ ] **ユーザー設定API**
-  - [ ] `src/routes/user-config.ts` - ユーザー設定APIエンドポイント
+  - [x] `src/storage/settings-encryption.ts` - 設定暗号化
+- [x] **ユーザー設定API**
+  - [x] `src/routes/user-config.ts` - ユーザー設定APIエンドポイント
   - [ ] 権限チェック統合
-  - [ ] エラーハンドリング
+  - [x] エラーハンドリング
   - [ ] API テスト
 
 ### 2.1 Google OAuth2

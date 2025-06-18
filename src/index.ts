@@ -21,7 +21,9 @@ import { registerConfigRoutes } from './routes/config.js';
 import { registerLogRoutes } from './routes/logs.js';
 import { registerServerManagementRoutes } from './routes/server-management.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerUserConfigRoutes } from './routes/user-config.js';
 import { AuthManager } from './auth/managers/auth-manager.js';
+import { UserConfigManager } from './config/user-config-manager.js';
 import { registerErrorHandler } from './middleware/error-handler.js';
 
 // Server instance reference for restart functionality
@@ -50,6 +52,7 @@ app.use(express.json());
 const mcpManager = new MCPBridgeManager();
 const toolRegistry = new BridgeToolRegistry(mcpManager, mcpConfig, configPath);
 const authManager = new AuthManager();
+const userConfigManager = new UserConfigManager();
 // Set reference to the tool registry
 mcpManager.setToolRegistry(toolRegistry);
 
@@ -131,6 +134,7 @@ registerToolRoutes(app, { mcpManager });
 registerToolAliasRoutes(app, { toolRegistry });
 registerResourceRoutes(app, { mcpManager });
 registerAuthRoutes(app, { authManager });
+registerUserConfigRoutes(app, { userConfigManager });
 registerConfigRoutes(app, { toolRegistry, mcpManager, restartServerOnNewPort });
 registerLogRoutes(app);
 registerServerManagementRoutes(app, { 
