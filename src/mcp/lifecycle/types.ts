@@ -168,3 +168,19 @@ export interface ValidationResult {
   errors: string[];
   warnings: string[];
 }
+
+export interface MCPInstanceMetric {
+  instanceId: string;
+  userId?: string;
+  timestamp: Date;
+  type: 'access' | 'memory' | 'cpu';
+  value: number;
+}
+
+export interface InstanceSummary {
+  totalInstances: number;
+  totalAccesses: number;
+  activeUsers: number;
+  averageMemoryUsage: number;
+  averageCpuUsage: number;
+}
