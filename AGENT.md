@@ -227,9 +227,10 @@ If you encounter:
 3. ~~Add resource monitoring and cleanup~~ ✅
 4. ~~Update `docs/oidc-oauth2-checklist.md` progress~~ ✅
 5. ~~Test lifecycle management with existing MCP bridge~~ ✅
+6. Implement dynamic permission checks ✅
 
 ---
 
 **Last Updated**: 2025年6月21日 (Lifecycle phase 1.5 complete)
-**Current Phase**: Phase 2 - Provider Implementation (IN PROGRESS)
-**Next Milestone**: Begin provider implementations
+**Current Phase**: Phase 3 - API Protection & RBAC (IN PROGRESS)
+**Next Milestone**: Complete dynamic authorization features
