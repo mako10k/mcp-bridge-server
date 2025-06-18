@@ -120,10 +120,10 @@
 - [x] テストケース作成
 
 ### 2.2 Microsoft Azure AD
-- [ ] `src/auth/providers/azure-provider.ts`
-- [ ] Microsoft Graph API 連携
-- [ ] テナント情報取得
-- [ ] テストケース作成
+- [x] `src/auth/providers/azure-provider.ts`
+- [x] Microsoft Graph API 連携
+- [x] テナント情報取得
+- [x] テストケース作成
 
 ### 2.3 GitHub OAuth2
 - [ ] `src/auth/providers/github-provider.ts`
