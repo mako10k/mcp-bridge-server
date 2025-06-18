@@ -35,5 +35,16 @@ export abstract class BaseProvider {
     return res.json() as Promise<OIDCTokenResponse>;
   }
 
+  async exchangeCode(code: string, pkce: PKCECodes): Promise<OIDCTokenResponse> {
+    const params = {
+      grant_type: 'authorization_code',
+      code,
+      client_id: this.config.clientId,
+      redirect_uri: this.config.redirectUri,
+      code_verifier: pkce.codeVerifier
+    };
+    return this.requestToken(params);
+  }
+
   abstract getUserInfo(accessToken: string): Promise<OIDCUserInfo | undefined>;
 }

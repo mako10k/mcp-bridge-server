@@ -41,7 +41,7 @@
 - [x] `src/auth/utils/crypto-utils.ts` - 暗号化ユーティリティ
 
 ### 1.4 認証フロー実装
-- [ ] `src/auth/managers/auth-manager.ts` - 認証フローの中央管理
+- [x] `src/auth/managers/auth-manager.ts` - 認証フローの中央管理
 - [ ] `src/routes/auth.ts` - 認証エンドポイント
   - [ ] `GET /auth/login/:provider` - ログイン開始
   - [ ] `GET /auth/callback/:provider` - OAuth2コールバック
@@ -313,4 +313,4 @@
 
 ---
 
-**最終更新**: 2025年6月17日
+**最終更新**: 2025年6月18日
