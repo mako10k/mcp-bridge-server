@@ -47,5 +47,5 @@ test('user settings persist and generate config', async () => {
 
   const lifecycle = MCPLifecycleManager.getInstance();
   lifecycle.stopCleanupTask();
-  lifecycle.stopMonitoring();
+  await lifecycle.stopMonitoring();
 });
