@@ -142,13 +142,13 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
 ## Phase 3: API保護とRBAC ⏳
 
 ### 3.1 認証ミドルウェア
-- [ ] `src/middleware/auth-middleware.ts` - JWT検証ミドルウェア
-  - [ ] Bearer トークン検証
+- [x] `src/middleware/auth-middleware.ts` - JWT検証ミドルウェア
+  - [x] Bearer トークン検証
   - [ ] Cookie セッション検証
-  - [ ] エラーハンドリング
-- [ ] `src/middleware/rbac-middleware.ts` - 権限チェック
-  - [ ] ロールベースアクセス制御
-  - [ ] パーミッション検証
+  - [x] エラーハンドリング
+- [x] `src/middleware/rbac-middleware.ts` - 権限チェック
+  - [x] ロールベースアクセス制御
+  - [x] パーミッション検証
   - [ ] 動的権限チェック
 
 ### 3.2 既存ルートの更新
