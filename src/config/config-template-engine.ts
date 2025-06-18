@@ -50,6 +50,18 @@ export class ConfigTemplateEngine {
     return this.loadTemplate(id);
   }
 
+  async getAllTemplates(): Promise<ServerConfigTemplate[]> {
+    const files = await fs.readdir(this.templatesDir);
+    const ids = files
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => f.replace('.json', ''));
+    const templates: ServerConfigTemplate[] = [];
+    for (const id of ids) {
+      templates.push(await this.getTemplate(id));
+    }
+    return templates;
+  }
+
   private async loadTemplate(id: string): Promise<ServerConfigTemplate> {
     const filePath = path.join(this.templatesDir, `${id}.json`);
     const data = await fs.readFile(filePath, 'utf-8');
@@ -80,7 +92,7 @@ export class ConfigTemplateEngine {
       name: template.name,
       transport: 'stdio',
       command: template.adminControlled.command,
-      args: [...template.adminControlled.baseArgs],
+      args: template.adminControlled.baseArgs.map(a => this.expandTemplateVariables(a, authContext)),
       env: { ...template.environmentVariables.adminControlled },
       enabled: true,
       timeout: 30000,
