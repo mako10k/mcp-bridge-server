@@ -126,10 +126,10 @@
 - [x] テストケース作成
 
 ### 2.3 GitHub OAuth2
-- [ ] `src/auth/providers/github-provider.ts`
-- [ ] GitHub API 連携
-- [ ] ユーザー情報取得
-- [ ] テストケース作成
+ - [x] `src/auth/providers/github-provider.ts`
+ - [x] GitHub API 連携
+ - [x] ユーザー情報取得
+ - [x] テストケース作成
 
 ### 2.4 汎用OIDC
 - [ ] `src/auth/providers/generic-oidc.ts`
