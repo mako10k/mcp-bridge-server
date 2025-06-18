@@ -27,18 +27,18 @@ Before starting any implementation, **MUST READ** these design documents in orde
 
 ## 🚀 Implementation Phases
 
-### Phase 1: Security Foundation (CURRENT PHASE)
-**Status**: 🟡 IN PROGRESS  
+### Phase 1: Security Foundation (COMPLETED)
+**Status**: � COMPLETED  
 **Duration**: 2-3 weeks  
 **Priority**: CRITICAL
 
-#### 1.1 Listen Address Security (FIRST TASK)
+#### 1.1 Listen Address Security (COMPLETED)
 - [x] **Complete implementation of `src/config/listen-address-security.ts`**
   - ✅ Base implementation created
   - [x] Integration with `src/index.ts`
   - [x] Configuration loading from `mcp-config.json`
   - [x] Environment variable support
-  - [ ] Runtime configuration updates
+  - [x] Runtime configuration updates
 
 - [x] **Update mcp-config.json schema**
   - [x] Add `security` section to config
@@ -50,35 +50,62 @@ Before starting any implementation, **MUST READ** these design documents in orde
   - [x] Replace hardcoded '127.0.0.1' with dynamic address
   - [x] Add security status logging
 
-#### 1.2 Configuration Template System
+#### 1.2 Configuration Template System (COMPLETED)
 - [x] Implement `src/config/config-template-engine.ts`
 - [x] Implement `src/config/config-validation.ts`
 - [x] Create base server configuration templates
 
-### Phase 2: Authentication Core (NEXT PHASE)
+#### 1.3 Authentication Routes Implementation (COMPLETED)
+- [x] Complete `src/routes/auth.ts` implementation
+- [x] All OIDC/OAuth2 endpoints functioning
+- [x] TypeScript compilation without errors
+- [x] Session management with security
+
+### Phase 1.5: MCP Lifecycle Management (IN PROGRESS)
+**Status**: 🟡 IN PROGRESS  
 **Duration**: 2-3 weeks  
 **Priority**: CRITICAL
 
-- [ ] OIDC/OAuth2 provider implementations
-- [ ] JWT token management
-- [ ] RBAC middleware
-- [ ] API endpoint protection
+#### 1.5.1 Basic Lifecycle Implementation (IN PROGRESS)
+- [x] **MCPLifecycleManager Foundation**
+  - [x] Core type definitions (`src/mcp/lifecycle/types.ts`)
+  - [x] Lifecycle mode definitions (Global/User/Session)
+  - [x] MCPInstanceContext interface implementation
+  - [ ] Main MCPLifecycleManager integration
 
-### Phase 3: User Settings System
-**Duration**: 2-3 weeks  
-**Priority**: HIGH
+- [x] **Path Template System**
+  - [x] PathTemplateResolver implementation (`src/mcp/templates/path-template-resolver.ts`)
+  - [x] Template variable resolution ({userId}, {sessionId} etc.)
+  - [x] Security validation (directory traversal prevention)
 
-- [ ] User configuration management
-- [ ] Settings persistence and encryption
-- [ ] User settings API endpoints
+- [x] **Instance Management Foundation**
+  - [x] GlobalInstanceManager - shared instance management (`src/mcp/lifecycle/global-instance-manager.ts`)
+  - [x] UserInstanceManager - user-specific instances (`src/mcp/lifecycle/user-instance-manager.ts`)
+  - [ ] SessionInstanceManager - session-specific instances
+  - [ ] Main lifecycle manager integration
 
-### Phase 4: User Interface
-**Duration**: 2-3 weeks  
-**Priority**: HIGH
+#### 1.5.2 Security & Resource Management (PENDING)
+- [ ] **Resource Limits**
+  - [ ] User-specific maximum instance limits
+  - [ ] Session-specific maximum instance limits
+  - [ ] Instance timeout functionality
+  - [ ] Resource monitoring integration
 
-- [ ] User UI for settings customization
-- [ ] Admin UI enhancements
-- [ ] Authentication integration
+- [ ] **Security Enhancement**
+  - [x] Path injection attack prevention
+  - [ ] Process isolation verification
+  - [ ] Minimum privilege process execution
+
+#### 1.5.3 Monitoring & Operations (PENDING)
+- [ ] **Instance Monitoring**
+  - [ ] Instance metrics collection
+  - [ ] Automatic cleanup functionality
+  - [ ] Admin UI integration for status display
+
+- [ ] **Logging & Audit**
+  - [ ] Instance creation/deletion logs
+  - [ ] User-specific access logs
+  - [ ] Resource usage logs
 
 ## 📋 Progress Tracking
 
@@ -194,14 +221,15 @@ If you encounter:
 
 ## 🎯 Current Focus
 
-**NEXT IMMEDIATE TASK**: Implement auth routes and update checklist ✅
-1. Create `src/routes/auth.ts`
-2. Add unit tests for login and callback
-3. Update `docs/oidc-oauth2-checklist.md` progress
-4. Document any issues encountered
+**NEXT IMMEDIATE TASK**: Complete MCP Lifecycle Management Phase 1.5 ✅
+1. Implement SessionInstanceManager
+2. Create main MCPLifecycleManager integration
+3. Add resource monitoring and cleanup
+4. Update `docs/oidc-oauth2-checklist.md` progress
+5. Test lifecycle management with existing MCP bridge
 
 ---
 
-**Last Updated**: 2025年6月18日 (Auth routes implemented)
-**Current Phase**: Phase 1 - Security Foundation
-**Next Milestone**: Configuration Template System
+**Last Updated**: 2025年6月18日 (Auth routes & lifecycle foundation implemented)
+**Current Phase**: Phase 1.5 - MCP Lifecycle Management (IN PROGRESS)
+**Next Milestone**: Complete lifecycle management integration
