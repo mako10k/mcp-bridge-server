@@ -194,14 +194,14 @@ If you encounter:
 
 ## 🎯 Current Focus
 
-**NEXT IMMEDIATE TASK**: Implement PKCE utilities and base provider ✅
-1. Create `src/auth/utils/pkce-utils.ts`
-2. Create `src/auth/providers/base-provider.ts`
+**NEXT IMMEDIATE TASK**: Implement AuthManager and update checklist ✅
+1. Create `src/auth/managers/auth-manager.ts`
+2. Add basic unit tests
 3. Update `docs/oidc-oauth2-checklist.md` progress
 4. Document any issues encountered
 
 ---
 
-**Last Updated**: 2025年6月18日 (crypto utils implemented, conflicts resolved)
+**Last Updated**: 2025年6月18日 (AuthManager skeleton added)
 **Current Phase**: Phase 1 - Security Foundation
 **Next Milestone**: Configuration Template System
