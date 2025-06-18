@@ -9,6 +9,7 @@ import { GlobalInstanceManager } from './global-instance-manager.js';
 import { UserInstanceManager } from './user-instance-manager.js';
 import { SessionInstanceManager } from './session-instance-manager.js';
 import { InstanceMetrics, InstanceSummary } from '../monitoring/instance-metrics.js';
+import { InstanceCleanup } from './instance-cleanup.js';
 
 /**
  * Main lifecycle manager coordinating global, user and session instances.
@@ -18,11 +19,18 @@ export class MCPLifecycleManager extends EventEmitter {
   private userManager = new UserInstanceManager();
   private sessionManager = new SessionInstanceManager();
   private metrics = new InstanceMetrics();
-  private cleanupInterval: NodeJS.Timeout | null = null;
+  private cleanup: InstanceCleanup;
 
   constructor(cleanupIntervalMs = 10 * 60 * 1000) {
     super();
-    this.startCleanupTask(cleanupIntervalMs);
+    this.cleanup = new InstanceCleanup({
+      intervalMs: cleanupIntervalMs,
+      managers: [this.globalManager, this.userManager, this.sessionManager]
+    });
+    this.cleanup.on('cleanup-started', () => this.emit('cleanup-started'));
+    this.cleanup.on('cleanup-completed', (r) => this.emit('cleanup-completed', r));
+    this.cleanup.on('cleanup-error', (e) => this.emit('instance-error', { id: 'cleanup' } as any, e));
+    this.cleanup.start();
   }
 
   async getOrCreateInstance(
@@ -89,28 +97,8 @@ export class MCPLifecycleManager extends EventEmitter {
     return this.metrics.getAggregatedMetrics();
   }
 
-  private startCleanupTask(intervalMs: number): void {
-    this.cleanupInterval = setInterval(async () => {
-      this.emit('cleanup-started');
-      try {
-        const [g, u, s] = await Promise.all([
-          this.globalManager.cleanup(),
-          this.userManager.cleanup(),
-          this.sessionManager.cleanup()
-        ]);
-        const removed = g + u + s;
-        this.emit('cleanup-completed', removed);
-      } catch (err) {
-        this.emit('instance-error', { id: 'cleanup' } as any, err as Error);
-      }
-    }, intervalMs);
-  }
-
   stopCleanupTask(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = null;
-    }
+    this.cleanup.stop();
   }
 }
 
