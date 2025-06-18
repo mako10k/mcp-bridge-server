@@ -8,6 +8,7 @@ import {
 import { GlobalInstanceManager } from './global-instance-manager.js';
 import { UserInstanceManager } from './user-instance-manager.js';
 import { SessionInstanceManager } from './session-instance-manager.js';
+import { InstanceMetrics, InstanceSummary } from '../monitoring/instance-metrics.js';
 
 /**
  * Main lifecycle manager coordinating global, user and session instances.
@@ -16,25 +17,34 @@ export class MCPLifecycleManager extends EventEmitter {
   private globalManager = new GlobalInstanceManager();
   private userManager = new UserInstanceManager();
   private sessionManager = new SessionInstanceManager();
+  private metrics = new InstanceMetrics();
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
-  constructor() {
+  constructor(cleanupIntervalMs = 10 * 60 * 1000) {
     super();
+    this.startCleanupTask(cleanupIntervalMs);
   }
 
   async getOrCreateInstance(
     config: MCPServerConfig,
     context: MCPInstanceContext
   ): Promise<MCPServerInstance> {
+    let instance: MCPServerInstance;
     switch (context.lifecycleMode) {
       case 'global':
-        return this.globalManager.createInstance(config, context);
+        instance = await this.globalManager.createInstance(config, context);
+        break;
       case 'user':
-        return this.userManager.createInstance(config, context);
+        instance = await this.userManager.createInstance(config, context);
+        break;
       case 'session':
-        return this.sessionManager.createInstance(config, context);
+        instance = await this.sessionManager.createInstance(config, context);
+        break;
       default:
         throw new Error(`Unsupported lifecycle mode: ${context.lifecycleMode}`);
     }
+    this.metrics.recordInstanceAccess(instance.id, context.userId);
+    return instance;
   }
 
   async terminateInstance(key: InstanceKey): Promise<void> {
@@ -74,4 +84,31 @@ export class MCPLifecycleManager extends EventEmitter {
       ...this.sessionManager.listInstances()
     ];
   }
+
+  getMetrics(): InstanceSummary {
+    return this.metrics.getAggregatedMetrics();
+  }
+
+  private startCleanupTask(intervalMs: number): void {
+    this.cleanupInterval = setInterval(() => {
+      this.emit('cleanup-started');
+      Promise.all([
+        this.globalManager.cleanup(),
+        this.userManager.cleanup(),
+        this.sessionManager.cleanup()
+      ]).then(() => {
+        this.emit('cleanup-completed', 0);
+      }).catch((err) => {
+        this.emit('instance-error', { id: 'cleanup' } as any, err);
+      });
+    }, intervalMs);
+  }
+
+  stopCleanupTask(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+  }
 }
+

@@ -57,19 +57,19 @@
 
 ## Phase 1.5: MCP ライフサイクル管理
 ### 🔄 基本ライフサイクル実装
-- [ ] **MCPLifecycleManager 基盤**
-  - [ ] ライフサイクルモード定義（Global/User/Session）
-  - [ ] MCPInstanceContext インターフェース実装
-  - [ ] 基本的なインスタンス管理機能
+- [x] **MCPLifecycleManager 基盤**
+  - [x] ライフサイクルモード定義（Global/User/Session）
+  - [x] MCPInstanceContext インターフェース実装
+  - [x] 基本的なインスタンス管理機能
 
-- [ ] **パステンプレート機能**
-  - [ ] PathTemplateResolver 実装
-  - [ ] テンプレート変数解決（{userId}, {sessionId} など）
-  - [ ] セキュリティ検証（ディレクトリトラバーサル防止）
+- [x] **パステンプレート機能**
+  - [x] PathTemplateResolver 実装
+  - [x] テンプレート変数解決（{userId}, {sessionId} など）
+  - [x] セキュリティ検証（ディレクトリトラバーサル防止）
 
-- [ ] **インスタンス管理機能**
-  - [ ] GlobalInstanceManager - 共有インスタンス管理
-  - [ ] UserInstanceManager - ユーザー別インスタンス管理  
+- [x] **インスタンス管理機能**
+  - [x] GlobalInstanceManager - 共有インスタンス管理
+  - [x] UserInstanceManager - ユーザー別インスタンス管理
   - [x] SessionInstanceManager - セッション別インスタンス管理
 
 ### 🔒 セキュリティ・制限機能
@@ -85,8 +85,8 @@
 
 ### 📊 監視・運用機能
 - [ ] **インスタンス監視**
-  - [ ] インスタンスメトリクス収集
-  - [ ] 自動クリーンアップ機能
+  - [x] インスタンスメトリクス収集
+  - [x] 自動クリーンアップ機能
   - [ ] 管理UI（Admin画面での状況表示）
 
 - [ ] **ログ・監査**
