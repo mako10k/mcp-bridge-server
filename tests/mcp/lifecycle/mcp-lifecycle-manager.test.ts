@@ -32,5 +32,6 @@ test('lifecycle manager creates instances per mode', async () => {
   assert.equal(u.context.userId, 'u1');
   assert.equal(s.context.sessionId, 's1');
   mgr.stopCleanupTask();
+  mgr.stopMonitoring();
 });
 

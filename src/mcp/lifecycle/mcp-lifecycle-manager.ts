@@ -9,6 +9,7 @@ import { GlobalInstanceManager } from './global-instance-manager.js';
 import { UserInstanceManager } from './user-instance-manager.js';
 import { SessionInstanceManager } from './session-instance-manager.js';
 import { InstanceMetrics, InstanceSummary } from '../monitoring/instance-metrics.js';
+import { ResourceMonitor } from '../monitoring/resource-monitor.js';
 import { InstanceCleanup } from './instance-cleanup.js';
 
 /**
@@ -19,10 +20,22 @@ export class MCPLifecycleManager extends EventEmitter {
   private userManager = new UserInstanceManager();
   private sessionManager = new SessionInstanceManager();
   private metrics = new InstanceMetrics();
+  private monitor: ResourceMonitor;
   private cleanup: InstanceCleanup;
 
   constructor(cleanupIntervalMs = 10 * 60 * 1000) {
     super();
+    this.monitor = new ResourceMonitor({ metrics: this.metrics, intervalMs: 5000 });
+    this.monitor.on('error', (e) => this.emit('instance-error', { id: 'monitor' } as any, e));
+    this.monitor.start();
+
+    this.globalManager.on('instance-started', (i) => i.process && this.monitor.addProcess(i.id, i.process));
+    this.userManager.on('instance-started', (i) => i.process && this.monitor.addProcess(i.id, i.process));
+    this.sessionManager.on('instance-started', (i) => i.process && this.monitor.addProcess(i.id, i.process));
+    this.globalManager.on('instance-stopped', (i) => this.monitor.removeProcess(i.id));
+    this.userManager.on('instance-stopped', (i) => this.monitor.removeProcess(i.id));
+    this.sessionManager.on('instance-stopped', (i) => this.monitor.removeProcess(i.id));
+
     this.cleanup = new InstanceCleanup({
       intervalMs: cleanupIntervalMs,
       managers: [this.globalManager, this.userManager, this.sessionManager]
@@ -99,6 +112,10 @@ export class MCPLifecycleManager extends EventEmitter {
 
   stopCleanupTask(): void {
     this.cleanup.stop();
+  }
+
+  stopMonitoring(): void {
+    this.monitor.stop();
   }
 }
 
