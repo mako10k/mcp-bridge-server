@@ -26,7 +26,7 @@ import { registerUserConfigRoutes } from './routes/user-config.js';
 import { AuthManager } from './auth/managers/auth-manager.js';
 import { UserConfigManager } from './config/user-config-manager.js';
 import { registerErrorHandler } from './middleware/error-handler.js';
-import { AuthConfigManager } from './config/auth-config.js';
+import { AuthConfigManager, type AuthConfig } from './config/auth-config.js';
 import { JWTUtils } from './auth/utils/jwt-utils.js';
 import { requireAuth } from './middleware/auth-middleware.js';
 import { createRBACMiddleware } from './middleware/rbac-middleware.js';
@@ -64,7 +64,7 @@ const toolRegistry = new BridgeToolRegistry(mcpManager, mcpConfig, configPath);
 const authManager = new AuthManager();
 const userConfigManager = new UserConfigManager();
 const authConfigManager = new AuthConfigManager(configPath);
-const authConfig = authConfigManager.getConfig();
+let authConfig = authConfigManager.getConfig();
 
 // Initialize JWT utilities
 let privateKey = process.env.JWT_PRIVATE_KEY;
@@ -83,56 +83,6 @@ const jwtConf = {
 };
 const jwtUtils = new JWTUtils(jwtConf as any, privateKey, publicKey);
 
-// Configure providers
-for (const provider of authConfig.providers) {
-  switch (provider.type) {
-    case 'google':
-      authManager.registerProvider(
-        new GoogleProvider({
-          clientId: provider.clientId,
-          clientSecret: provider.clientSecret,
-          redirectUri: provider.redirectUri || '',
-          scope: provider.scope
-        })
-      );
-      break;
-    case 'azure':
-      authManager.registerProvider(
-        new AzureProvider({
-          clientId: provider.clientId,
-          clientSecret: provider.clientSecret,
-          redirectUri: provider.redirectUri || '',
-          scope: provider.scope,
-          tenantId: provider.tenantId || ''
-        })
-      );
-      break;
-    case 'github':
-      authManager.registerProvider(
-        new GitHubProvider({
-          clientId: provider.clientId,
-          clientSecret: provider.clientSecret,
-          redirectUri: provider.redirectUri || '',
-          scope: provider.scope
-        })
-      );
-      break;
-    case 'oidc': {
-      const p = new GenericOIDCProvider({
-        clientId: provider.clientId,
-        clientSecret: provider.clientSecret,
-        redirectUri: provider.redirectUri || '',
-        scope: provider.scope,
-        issuer: (provider as any).issuer || '',
-        discovery: true
-      });
-      await p.init().catch((err) => logger.error('OIDC provider init failed', err));
-      authManager.registerProvider(p);
-      break;
-    }
-  }
-}
-
 const requireAuthMiddleware = requireAuth({ jwtUtils, mode: authConfig.mode });
 const requirePermission = createRBACMiddleware(
   (authConfig.rbac as any) || {
@@ -145,6 +95,84 @@ const requirePermission = createRBACMiddleware(
 );
 
 const authHandlers = { requireAuth: requireAuthMiddleware, requirePermission };
+
+async function configureAuth(config: AuthConfig): Promise<void> {
+  authConfig = config;
+  requireAuthMiddleware.update({ jwtUtils, mode: config.mode });
+  requirePermission.update((config.rbac as any) || {
+    defaultRole: 'viewer',
+    roles: {
+      viewer: { id: 'viewer', name: 'Viewer', permissions: ['read'], isSystemRole: true },
+      admin: { id: 'admin', name: 'Admin', permissions: ['*'], isSystemRole: true }
+    }
+  });
+
+  authManager.unregisterAllProviders();
+
+  for (const provider of config.providers) {
+    switch (provider.type) {
+      case 'google':
+        authManager.registerProvider(
+          new GoogleProvider({
+            clientId: provider.clientId,
+            clientSecret: provider.clientSecret,
+            redirectUri: provider.redirectUri || '',
+            scope: provider.scope
+          })
+        );
+        break;
+      case 'azure':
+        authManager.registerProvider(
+          new AzureProvider({
+            clientId: provider.clientId,
+            clientSecret: provider.clientSecret,
+            redirectUri: provider.redirectUri || '',
+            scope: provider.scope,
+            tenantId: provider.tenantId || ''
+          })
+        );
+        break;
+      case 'github':
+        authManager.registerProvider(
+          new GitHubProvider({
+            clientId: provider.clientId,
+            clientSecret: provider.clientSecret,
+            redirectUri: provider.redirectUri || '',
+            scope: provider.scope
+          })
+        );
+        break;
+      case 'oidc': {
+        const p = new GenericOIDCProvider({
+          clientId: provider.clientId,
+          clientSecret: provider.clientSecret,
+          redirectUri: provider.redirectUri || '',
+          scope: provider.scope,
+          issuer: (provider as any).issuer || '',
+          discovery: true
+        });
+        await p.init().catch((err) => logger.error('OIDC provider init failed', err));
+        authManager.registerProvider(p);
+        break;
+      }
+    }
+  }
+}
+
+await configureAuth(authConfig);
+
+authConfigManager.on('reloaded', async (newConfig) => {
+  const newJwtConf = {
+    issuer: 'mcp-bridge',
+    audience: 'mcp-bridge-api',
+    expiresIn: '1h',
+    ...newConfig.jwt
+  } as any;
+  jwtUtils.updateConfig(newJwtConf, privateKey!, publicKey!);
+  await configureAuth(newConfig);
+  logger.info('Authentication configuration reloaded');
+});
+
 // Set reference to the tool registry
 mcpManager.setToolRegistry(toolRegistry);
 

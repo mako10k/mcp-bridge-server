@@ -12,11 +12,19 @@ export interface RBACMiddlewareOptions {
   checkPermission?: PermissionChecker;
 }
 
+export interface UpdatableRBACMiddleware {
+  (permission: string): express.RequestHandler;
+  update(rbac: RBACConfig, options?: RBACMiddlewareOptions): void;
+}
+
 export function createRBACMiddleware(
-  rbac: RBACConfig,
-  options: RBACMiddlewareOptions = {}
-) {
-  return function requirePermission(permission: string): express.RequestHandler {
+  initialRbac: RBACConfig,
+  initialOptions: RBACMiddlewareOptions = {}
+): UpdatableRBACMiddleware {
+  let rbac = { ...initialRbac };
+  let options = { ...initialOptions };
+
+  const middleware = function requirePermission(permission: string): express.RequestHandler {
     return async (
       req: express.Request,
       res: express.Response,
@@ -29,20 +37,23 @@ export function createRBACMiddleware(
       }
 
       const roles = user.roles && user.roles.length > 0 ? user.roles : [rbac.defaultRole];
-      let allowed = false;
+      let allowedRbac = false;
       for (const roleName of roles) {
         const role = rbac.roles[roleName];
         if (!role) continue;
         if (role.permissions.includes('*') || role.permissions.includes(permission)) {
-          allowed = true;
+          allowedRbac = true;
           break;
         }
       }
 
-      if (allowed && options.checkPermission) {
+      let allowed = allowedRbac;
+      if (options.checkPermission) {
         try {
           const result = await options.checkPermission(user, permission, req);
-          allowed = !!result;
+          if (typeof result === 'boolean') {
+            allowed = result;
+          }
         } catch (err) {
           res.status(500).json({ error: 'Permission check failed' });
           return;
@@ -56,5 +67,12 @@ export function createRBACMiddleware(
 
       next();
     };
+  } as UpdatableRBACMiddleware;
+
+  middleware.update = (newRbac: RBACConfig, newOptions: RBACMiddlewareOptions = {}) => {
+    rbac = { ...newRbac };
+    options = { ...newOptions };
   };
+
+  return middleware;
 }

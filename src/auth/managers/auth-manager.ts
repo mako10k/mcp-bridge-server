@@ -14,6 +14,10 @@ export class AuthManager {
     this.providers.set(provider.id, provider);
   }
 
+  unregisterAllProviders(): void {
+    this.providers.clear();
+  }
+
   getProvider(id: string): BaseProvider {
     const provider = this.providers.get(id);
     if (!provider) {

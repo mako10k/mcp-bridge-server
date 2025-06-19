@@ -20,8 +20,13 @@ export interface AuthenticatedRequest extends express.Request {
   user?: TokenPayload;
 }
 
-export function requireAuth(options: AuthMiddlewareOptions): express.RequestHandler {
-  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+export interface UpdatableAuthMiddleware extends express.RequestHandler {
+  update(options: AuthMiddlewareOptions): void;
+}
+
+export function requireAuth(initialOptions: AuthMiddlewareOptions): UpdatableAuthMiddleware {
+  let options = { ...initialOptions };
+  const handler = ((req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (options.mode === 'disabled') {
       return next();
     }
@@ -64,5 +69,11 @@ export function requireAuth(options: AuthMiddlewareOptions): express.RequestHand
         next();
       }
     }
+  }) as UpdatableAuthMiddleware;
+
+  handler.update = (newOptions: AuthMiddlewareOptions) => {
+    options = { ...newOptions };
   };
+
+  return handler;
 }
