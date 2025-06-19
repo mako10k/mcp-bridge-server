@@ -43,7 +43,7 @@ export function requireAuth(initialOptions: AuthMiddlewareOptions): UpdatableAut
           (req as AuthenticatedRequest).user = {
             sub: session.user.sub,
             email: session.user.email,
-            roles: []
+            roles: session.user.roles || []
           };
           return next();
         }
@@ -60,7 +60,10 @@ export function requireAuth(initialOptions: AuthMiddlewareOptions): UpdatableAut
 
     try {
       const payload = options.jwtUtils.verify(token);
-      (req as AuthenticatedRequest).user = payload;
+      (req as AuthenticatedRequest).user = {
+        ...payload,
+        roles: payload.roles || []
+      };
       next();
     } catch (err) {
       if (options.mode === 'required') {

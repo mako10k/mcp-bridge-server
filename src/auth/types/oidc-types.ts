@@ -25,4 +25,5 @@ export interface OIDCUserInfo {
   name?: string;
   email?: string;
   picture?: string;
+  roles?: string[];
 }

@@ -12,6 +12,7 @@ import { logger } from '../utils/logger.js';
 
 export interface AuthRouteContext {
   authManager: AuthManager;
+  getRBACConfig?: () => import('../auth/types/rbac-types.js').RBACConfig | undefined;
 }
 
 export interface AuthRequest extends express.Request {
@@ -131,8 +132,20 @@ export const callbackHandler = (context: AuthRouteContext) =>
         return;
       }
 
+      // Determine roles using RBAC configuration
+      const rbac = context.getRBACConfig?.();
+      let roles: string[] = [];
+      if (rbac) {
+        const mapping = rbac.userMappings?.find(m => m.email.toLowerCase() === (userInfo.email || '').toLowerCase());
+        if (mapping) {
+          roles = [mapping.role];
+        } else if (rbac.defaultRole) {
+          roles = [rbac.defaultRole];
+        }
+      }
+
       // Update session with user info and tokens
-      sessionData.user = userInfo;
+      sessionData.user = { ...userInfo, roles };
       sessionData.tokens = tokens;
       sessionStore.set(sessionId, sessionData);
 

@@ -253,7 +253,7 @@ registerMCPServerRoutes(app, { mcpManager }, authHandlers);
 registerToolRoutes(app, { mcpManager }, authHandlers);
 registerToolAliasRoutes(app, { toolRegistry }, authHandlers);
 registerResourceRoutes(app, { mcpManager }, authHandlers);
-registerAuthRoutes(app, { authManager });
+registerAuthRoutes(app, { authManager, getRBACConfig: () => authConfig.rbac as any });
 registerUserConfigRoutes(app, { userConfigManager }, authHandlers);
 registerConfigRoutes(app, { toolRegistry, mcpManager, restartServerOnNewPort }, authHandlers);
 registerLogRoutes(app, authHandlers);
