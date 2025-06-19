@@ -9,6 +9,8 @@
         "DEBUG": "${DEBUG_LEVEL:-false}",
         "LOG_LEVEL": "${LOG_LEVEL:-info}"
       },
+      "uid": 65534,
+      "gid": 65534,
       "enabled": true,
       "timeout": 30000,
       "restartOnFailure": true,
