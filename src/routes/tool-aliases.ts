@@ -1,10 +1,27 @@
 import express from 'express';
+import { z } from 'zod';
 import { BridgeToolRegistry } from '../bridge-tool-registry.js';
 import { logger } from '../utils/logger.js';
+import { validateBody } from '../middleware/validation.js';
 
 export interface ToolAliasRouteContext {
   toolRegistry: BridgeToolRegistry;
 }
+
+// Zod schemas for request validation
+const CreateAliasSchema = z
+  .object({
+    serverId: z.string().min(1),
+    toolName: z.string().min(1),
+    newName: z.string().trim().optional()
+  })
+  .strict();
+
+const UpdateAliasSchema = z
+  .object({
+    newName: z.string().trim().min(1)
+  })
+  .strict();
 
 export interface AuthHandlers {
   requireAuth: express.RequestHandler;
@@ -28,17 +45,16 @@ export const listToolAliasesHandler = (context: ToolAliasRouteContext) =>
 /**
  * Create a tool alias handler
  */
-export const createToolAliasHandler = (context: ToolAliasRouteContext) => 
+export const createToolAliasHandler = (context: ToolAliasRouteContext) =>
   async (req: express.Request, res: express.Response) => {
     try {
-      const { serverId, toolName, newName } = req.body;
-      if (!serverId || !toolName) {
-        return res.status(400).json({ error: 'serverId and toolName are required' });
-      }
-      
+      const { serverId, toolName, newName } = CreateAliasSchema.parse(req.body);
       const result = await context.toolRegistry.handleCreateToolAlias({ serverId, toolName, newName });
       res.json(result);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid request body', details: error.errors });
+      }
       logger.error('Error creating tool alias:', error);
       res.status(500).json({ error: 'Failed to create tool alias' });
     }
@@ -92,19 +108,18 @@ export const listAutoDiscoveryToolAliasesHandler = (context: ToolAliasRouteConte
 /**
  * Update tool alias handler
  */
-export const updateToolAliasHandler = (context: ToolAliasRouteContext) => 
+export const updateToolAliasHandler = (context: ToolAliasRouteContext) =>
   async (req: express.Request, res: express.Response) => {
     try {
       const { aliasName } = req.params;
-      const { newName } = req.body;
-      
-      if (!newName) {
-        return res.status(400).json({ error: 'newName is required' });
-      }
-      
+      const { newName } = UpdateAliasSchema.parse(req.body);
+
       const result = await context.toolRegistry.handleUpdateToolAlias({ oldName: aliasName, newName });
       res.json(result);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid request body', details: error.errors });
+      }
       logger.error(`Error updating tool alias ${req.params.aliasName}:`, error);
       res.status(500).json({ error: 'Failed to update tool alias' });
     }
@@ -131,6 +146,7 @@ export const registerToolAliasRoutes = (
     '/mcp/tool-aliases',
     requireAuth,
     requirePerm('write'),
+    validateBody(CreateAliasSchema),
     createToolAliasHandler(context) as express.RequestHandler
   );
   app.delete(
@@ -155,6 +171,7 @@ export const registerToolAliasRoutes = (
     '/mcp/tool-aliases/:aliasName',
     requireAuth,
     requirePerm('write'),
+    validateBody(UpdateAliasSchema),
     updateToolAliasHandler(context) as express.RequestHandler
   );
 };
