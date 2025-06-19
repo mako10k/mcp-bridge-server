@@ -11,6 +11,7 @@ import { SessionInstanceManager } from './session-instance-manager.js';
 import { InstanceMetrics, InstanceSummary } from '../monitoring/instance-metrics.js';
 import { ResourceMonitor } from '../monitoring/resource-monitor.js';
 import { InstanceCleanup } from './instance-cleanup.js';
+import { auditLogger } from '../../utils/audit-logger.js';
 
 /**
  * Main lifecycle manager coordinating global, user and session instances.
@@ -43,6 +44,29 @@ export class MCPLifecycleManager extends EventEmitter {
     this.globalManager.on('instance-stopped', (i) => this.monitor.removeProcess(i.id));
     this.userManager.on('instance-stopped', (i) => this.monitor.removeProcess(i.id));
     this.sessionManager.on('instance-stopped', (i) => this.monitor.removeProcess(i.id));
+
+    const logCreation = (inst: MCPServerInstance) => {
+      auditLogger.log({
+        timestamp: new Date().toISOString(),
+        level: 'INFO',
+        message: `INSTANCE_CREATED id=${inst.id} user=${inst.context.userId ?? 'n/a'} mode=${inst.context.lifecycleMode}`
+      });
+    };
+
+    const logStop = (inst: MCPServerInstance) => {
+      auditLogger.log({
+        timestamp: new Date().toISOString(),
+        level: 'INFO',
+        message: `INSTANCE_STOPPED id=${inst.id} user=${inst.context.userId ?? 'n/a'} mode=${inst.context.lifecycleMode}`
+      });
+    };
+
+    this.globalManager.on('instance-created', logCreation);
+    this.userManager.on('instance-created', logCreation);
+    this.sessionManager.on('instance-created', logCreation);
+    this.globalManager.on('instance-stopped', logStop);
+    this.userManager.on('instance-stopped', logStop);
+    this.sessionManager.on('instance-stopped', logStop);
 
     this.cleanup = new InstanceCleanup({
       intervalMs: cleanupIntervalMs,

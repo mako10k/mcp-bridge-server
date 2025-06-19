@@ -1,5 +1,6 @@
 import { AuthenticatedUser } from '../context/auth-context.js';
 import { MCPLifecycleManager } from '../../mcp/lifecycle/mcp-lifecycle-manager.js';
+import { auditLogger } from '../../utils/audit-logger.js';
 
 /**
  * Simple resource access control checks.
@@ -27,15 +28,24 @@ export class ResourceAccessControl {
     resourceId: string
   ): Promise<boolean> {
     const isAdmin = user.roles?.includes('admin');
+    let allowed = false;
     switch (resourceType) {
       case 'user_config':
-        return resourceId === user.id || !!isAdmin;
+        allowed = resourceId === user.id || !!isAdmin;
+        break;
       case 'server_instance': {
         const instance = await this.getServerInstance(resourceId);
-        return instance?.userId === user.id || !!isAdmin;
+        allowed = instance?.userId === user.id || !!isAdmin;
+        break;
       }
       default:
-        return false;
+        allowed = false;
     }
+    auditLogger.log({
+      timestamp: new Date().toISOString(),
+      level: allowed ? 'INFO' : 'WARN',
+      message: `ACCESS_CHECK user=${user.id} action=${action} resource=${resourceType}:${resourceId} allowed=${allowed}`
+    });
+    return allowed;
   }
 }
