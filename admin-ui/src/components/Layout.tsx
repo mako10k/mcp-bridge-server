@@ -1,16 +1,17 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Server, 
-  Wrench, 
-  Settings, 
+import {
+  Home,
+  Server,
+  Wrench,
+  Settings,
   FileText,
   Menu,
   X,
-  Search 
+  Search
 } from 'lucide-react';
 import { useState } from 'react';
+import UserProfile from './UserProfile';
 
 interface LayoutProps {
   children: ReactNode;
@@ -37,6 +38,7 @@ export default function Layout({ children }: LayoutProps) {
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
           <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200">
             <h1 className="text-xl font-semibold text-gray-900">MCP Bridge</h1>
+            <UserProfile />
             <button
               type="button"
               className="text-gray-400 hover:text-gray-600"
@@ -71,8 +73,9 @@ export default function Layout({ children }: LayoutProps) {
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6">
-          <div className="flex h-16 shrink-0 items-center">
+          <div className="flex h-16 shrink-0 items-center justify-between">
             <h1 className="text-xl font-semibold text-gray-900">MCP Bridge</h1>
+            <UserProfile />
           </div>
           <nav className="flex flex-1 flex-col">
             <ul role="list" className="flex flex-1 flex-col gap-y-7">

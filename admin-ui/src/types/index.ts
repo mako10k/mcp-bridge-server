@@ -92,3 +92,4 @@ export interface LogEntry {
   serverId?: string;
   error?: string;
 }
+export type { AuthUser } from './auth';

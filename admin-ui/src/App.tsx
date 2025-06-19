@@ -7,6 +7,9 @@ import ToolManagement from './pages/ToolManagement';
 import GlobalSettings from './pages/GlobalSettings';
 import ToolDiscoverySettings from './pages/ToolDiscoverySettings';
 import LogViewer from './pages/LogViewer';
+import LoginPage from './components/LoginPage';
+import RequireAuth from './components/RequireAuth';
+import { AuthProvider } from './contexts/AuthContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,19 +23,71 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <Layout>
+      <AuthProvider>
+        <Router>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/servers" element={<ServerManagement />} />
-            <Route path="/tools" element={<ToolManagement />} />
-            <Route path="/settings" element={<GlobalSettings />} />
-            <Route path="/discovery" element={<ToolDiscoverySettings />} />
-            <Route path="/logs" element={<LogViewer />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/*"
+              element={
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route
+                      path="/dashboard"
+                      element={
+                        <RequireAuth>
+                          <Dashboard />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/servers"
+                      element={
+                        <RequireAuth>
+                          <ServerManagement />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/tools"
+                      element={
+                        <RequireAuth>
+                          <ToolManagement />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/settings"
+                      element={
+                        <RequireAuth>
+                          <GlobalSettings />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/discovery"
+                      element={
+                        <RequireAuth>
+                          <ToolDiscoverySettings />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/logs"
+                      element={
+                        <RequireAuth>
+                          <LogViewer />
+                        </RequireAuth>
+                      }
+                    />
+                  </Routes>
+                </Layout>
+              }
+            />
           </Routes>
-        </Layout>
-      </Router>
+        </Router>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
