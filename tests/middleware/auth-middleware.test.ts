@@ -35,7 +35,7 @@ test('requireAuth allows valid token', async () => {
     );
   });
   assert.equal(data.statusCode, 200);
-  server.close();
+  await new Promise<void>((r) => server.close(() => r()));
 });
 
 test('requireAuth rejects missing token when required', async () => {
@@ -81,5 +81,24 @@ test('requireAuth uses session cookie', async () => {
   });
   assert.equal(res.statusCode, 200);
   sessionStore.delete(sid);
+  server.close();
+});
+
+test('requireAuth updates mode dynamically', async () => {
+  const handler = requireAuth({ jwtUtils, mode: 'optional' });
+  const app = express();
+  app.get('/p', handler, (_req, res) => { res.json({ ok: true }); });
+  const server = app.listen(0);
+  await new Promise<void>((r) => server.once('listening', r));
+  const { port } = server.address() as any;
+  let res = await new Promise<http.IncomingMessage>((resolve) => {
+    http.get(`http://127.0.0.1:${port}/p`, resolve);
+  });
+  assert.equal(res.statusCode, 200);
+  handler.update({ jwtUtils, mode: 'required' });
+  res = await new Promise<http.IncomingMessage>((resolve) => {
+    http.get(`http://127.0.0.1:${port}/p`, resolve);
+  });
+  assert.equal(res.statusCode, 401);
   server.close();
 });

@@ -50,7 +50,7 @@ test('requirePermission allows when role has permission', async () => {
     http.get({ hostname: '127.0.0.1', port, path: '/secure', headers: { Authorization: `Bearer ${token}` } }, resolve);
   });
   assert.equal(res.statusCode, 200);
-  server.close();
+  await new Promise<void>((r) => server.close(() => r()));
 });
 
 test('requirePermission denies when permission missing', async () => {
@@ -94,6 +94,29 @@ test('dynamic permission checker allows when role lacks permission', async () =>
       { hostname: '127.0.0.1', port, path: '/admin', headers: { Authorization: `Bearer ${token}` } },
       resolve
     );
+  });
+  assert.equal(res.statusCode, 200);
+  server.close();
+});
+
+test('rbac middleware updates roles dynamically', async () => {
+  const middleware = createRBACMiddleware(rbac);
+  const app = express();
+  app.get('/admin', requireAuth({ jwtUtils, mode: 'required' }), middleware('write'), (_req, res) => { res.json({ ok: true }); });
+  const server = app.listen(0);
+  await new Promise<void>((r) => server.once('listening', r));
+  const { port } = server.address() as any;
+  let token = jwtUtils.sign({ sub: '1', roles: ['viewer'] });
+  let res = await new Promise<http.IncomingMessage>((resolve) => {
+    http.get({ hostname: '127.0.0.1', port, path: '/admin', headers: { Authorization: `Bearer ${token}` } }, resolve);
+  });
+  assert.equal(res.statusCode, 403);
+  middleware.update({
+    defaultRole: 'viewer',
+    roles: { viewer: { id: 'viewer', name: 'Viewer', permissions: ['write'], isSystemRole: true } }
+  });
+  res = await new Promise<http.IncomingMessage>((resolve) => {
+    http.get({ hostname: '127.0.0.1', port, path: '/admin', headers: { Authorization: `Bearer ${token}` } }, resolve);
   });
   assert.equal(res.statusCode, 200);
   server.close();

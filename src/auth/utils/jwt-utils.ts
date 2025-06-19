@@ -17,6 +17,16 @@ export interface TokenPayload extends JwtPayload {
 export class JWTUtils {
   constructor(private config: JWTConfig, private privateKey: string, private publicKey: string) {}
 
+  updateConfig(config: JWTConfig, privateKey?: string, publicKey?: string): void {
+    this.config = config;
+    if (privateKey) {
+      this.privateKey = privateKey;
+    }
+    if (publicKey) {
+      this.publicKey = publicKey;
+    }
+  }
+
   sign(payload: TokenPayload, options: SignOptions = {}): string {
     try {
       const signOptions: SignOptions = {
