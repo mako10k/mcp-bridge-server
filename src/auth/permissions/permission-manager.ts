@@ -1,8 +1,9 @@
 import { AuthenticatedUser } from '../context/auth-context.js';
 import { RBACConfig, Role } from '../types/rbac-types.js';
+import { ResourceAccessControl } from './resource-access-control.js';
 
 export class PermissionManager {
-  constructor(private rbac: RBACConfig) {}
+  constructor(private rbac: RBACConfig, private access = new ResourceAccessControl()) {}
 
   updateConfig(rbac: RBACConfig) {
     this.rbac = rbac;
@@ -23,11 +24,6 @@ export class PermissionManager {
     return user.roles?.includes('admin');
   }
 
-  private async getServerInstance(_id: string): Promise<{userId: string}> {
-    // Placeholder for server instance lookup
-    return { userId: '' };
-  }
-
   async checkPermission(user: AuthenticatedUser, permission: string, resource?: any): Promise<boolean> {
     const roles = await this.getUserRoles(user.id);
     for (const role of roles) {
@@ -38,16 +34,12 @@ export class PermissionManager {
     return false;
   }
 
-  async checkResourceAccess(user: AuthenticatedUser, action: string, resourceType: string, resourceId: string): Promise<boolean> {
-    switch (resourceType) {
-      case 'user_config':
-        return resourceId === user.id || this.isAdmin(user);
-      case 'server_instance': {
-        const instance = await this.getServerInstance(resourceId);
-        return instance.userId === user.id || this.isAdmin(user);
-      }
-      default:
-        return false;
-    }
+  async checkResourceAccess(
+    user: AuthenticatedUser,
+    action: string,
+    resourceType: string,
+    resourceId: string
+  ): Promise<boolean> {
+    return this.access.checkAccess(user, action, resourceType, resourceId);
   }
 }
