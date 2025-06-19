@@ -234,13 +234,13 @@ export const InstanceManagement = () => {
 ### 移行計画
 
 #### Week 1-2: 基盤実装
-- [ ] MCPLifecycleManager基本実装
-- [ ] 既存MCPBridgeManagerとの統合ポイント作成
-- [ ] 設定ファイル拡張
+- [x] MCPLifecycleManager基本実装
+- [x] 既存MCPBridgeManagerとの統合ポイント作成
+- [x] 設定ファイル拡張
 
 #### Week 3: 認証統合
-- [ ] AuthContextManagerとの連携
-- [ ] ルートハンドラーの更新
+- [x] AuthContextManagerとの連携
+- [x] ルートハンドラーの更新
 - [ ] セキュリティ検証実装
 
 #### Week 4: 管理機能
