@@ -123,6 +123,18 @@ export class MCPBridgeService {
     await api.put('/mcp/config/global', { config });
   }
 
+  async updateNetworkSecurity(updates: {
+    listenAddress?: string;
+    allowExternalAccess?: boolean;
+  }): Promise<void> {
+    await api.put('/mcp/config/network', updates);
+  }
+
+  async getNetworkSecurity(): Promise<{ listenAddress: string; allowExternalAccess: boolean }> {
+    const res = await api.get('/mcp/config/network');
+    return res.data.config;
+  }
+
   // Tool Discovery Rules
   async getToolDiscoveryRules(): Promise<ToolDiscoveryRule[]> {
     const response = await api.get('/mcp/config/discovery-rules');

@@ -4,6 +4,7 @@ import { BridgeToolRegistry } from '../bridge-tool-registry.js';
 import { MCPBridgeManager } from '../mcp-bridge-manager.js';
 import { logger } from '../utils/logger.js';
 import { MCPServerConfigSchema, GlobalConfigSchema, type GlobalConfig } from '../config/mcp-config.js';
+import { listenAddressSecurityManager } from '../config/listen-address-security.js';
 
 export interface ConfigRouteContext {
   toolRegistry: BridgeToolRegistry;
@@ -170,6 +171,49 @@ export const updateGlobalConfigHandler = (context: ConfigRouteContext) =>
   };
 
 /**
+ * Update network security settings handler
+ */
+export const updateNetworkSecurityHandler = (context: ConfigRouteContext) =>
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const BodySchema = z.object({
+        allowExternalAccess: z.boolean().optional(),
+        listenAddress: z.string().optional()
+      });
+      const updates = BodySchema.parse(req.body);
+
+      const result = await context.toolRegistry
+        .getConfigManager()
+        .updateNetworkSecurity(updates);
+
+      if (result.success && result.config?.security) {
+        listenAddressSecurityManager.applyConfig(result.config.security);
+      }
+
+      res.json(result);
+    } catch (error) {
+      logger.error('Error updating network security:', error);
+      res.status(500).json({ error: 'Failed to update network security' });
+    }
+  };
+
+/**
+ * Get network security settings handler
+ */
+export const getNetworkSecurityHandler = (context: ConfigRouteContext) =>
+  async (_req: express.Request, res: express.Response) => {
+    try {
+      const settings = context.toolRegistry
+        .getConfigManager()
+        .getNetworkSecuritySettings();
+      res.json({ config: settings });
+    } catch (error) {
+      logger.error('Error getting network security:', error);
+      res.status(500).json({ error: 'Failed to get network security' });
+    }
+  };
+
+/**
  * Get tool discovery rules handler
  */
 export const getToolDiscoveryRulesHandler = (context: ConfigRouteContext) => 
@@ -292,6 +336,19 @@ export const registerConfigRoutes = (
     requireAuth,
     requirePerm('config'),
     updateGlobalConfigHandler(context) as express.RequestHandler
+  );
+
+  app.put(
+    '/mcp/config/network',
+    requireAuth,
+    requirePerm('config'),
+    updateNetworkSecurityHandler(context) as express.RequestHandler
+  );
+  app.get(
+    '/mcp/config/network',
+    requireAuth,
+    requirePerm('config'),
+    getNetworkSecurityHandler(context) as express.RequestHandler
   );
 
   // Tool discovery rules routes
