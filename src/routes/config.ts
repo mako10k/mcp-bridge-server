@@ -1,7 +1,9 @@
 import express from 'express';
+import { z } from 'zod';
 import { BridgeToolRegistry } from '../bridge-tool-registry.js';
 import { MCPBridgeManager } from '../mcp-bridge-manager.js';
 import { logger } from '../utils/logger.js';
+import { MCPServerConfigSchema, GlobalConfigSchema, type GlobalConfig } from '../config/mcp-config.js';
 
 export interface ConfigRouteContext {
   toolRegistry: BridgeToolRegistry;
@@ -54,15 +56,17 @@ export const getServerConfigHandler = (context: ConfigRouteContext) =>
 /**
  * Add server configuration handler
  */
-export const addServerConfigHandler = (context: ConfigRouteContext) => 
+export const addServerConfigHandler = (context: ConfigRouteContext) =>
   async (req: express.Request, res: express.Response) => {
     try {
-      const { serverId, config } = req.body;
-      if (!serverId || !config) {
-        return res.status(400).json({ error: 'serverId and config are required' });
-      }
-      
-      const result = await context.toolRegistry.handleAddServerConfig({ serverId, config });
+      const BodySchema = z.object({
+        serverId: z.string().min(1),
+        config: z.any()
+      });
+      const { serverId, config } = BodySchema.parse(req.body);
+      const validated = MCPServerConfigSchema.parse(config);
+
+      const result = await context.toolRegistry.handleAddServerConfig({ serverId, config: validated });
       res.json(result);
     } catch (error) {
       logger.error('Error adding server configuration:', error);
@@ -73,16 +77,17 @@ export const addServerConfigHandler = (context: ConfigRouteContext) =>
 /**
  * Update server configuration handler
  */
-export const updateServerConfigHandler = (context: ConfigRouteContext) => 
+export const updateServerConfigHandler = (context: ConfigRouteContext) =>
   async (req: express.Request, res: express.Response) => {
     try {
       const { serverId } = req.params;
-      const { config } = req.body;
-      if (!config) {
-        return res.status(400).json({ error: 'config is required' });
-      }
-      
-      const result = await context.toolRegistry.handleUpdateServerConfig({ serverId, config });
+      const BodySchema = z.object({
+        config: z.any()
+      });
+      const { config } = BodySchema.parse(req.body);
+      const validated = MCPServerConfigSchema.parse(config);
+
+      const result = await context.toolRegistry.handleUpdateServerConfig({ serverId, config: validated });
       res.json(result);
     } catch (error) {
       logger.error(`Error updating server configuration for ${req.params.serverId}:`, error);
@@ -123,20 +128,21 @@ export const getGlobalConfigHandler = (context: ConfigRouteContext) =>
 /**
  * Update global configuration handler
  */
-export const updateGlobalConfigHandler = (context: ConfigRouteContext) => 
+export const updateGlobalConfigHandler = (context: ConfigRouteContext) =>
   async (req: express.Request, res: express.Response) => {
     try {
-      const { config } = req.body;
-      if (!config) {
-        return res.status(400).json({ error: 'config is required' });
-      }
-      
+      const BodySchema = z.object({
+        config: z.any()
+      });
+      const { config } = BodySchema.parse(req.body);
+      const validated = GlobalConfigSchema.parse(config) as NonNullable<GlobalConfig>;
+
       // Check if httpPort is being changed
       const currentConfig = context.toolRegistry.getConfigManager().getCurrentConfig();
       const currentHttpPort = currentConfig.global?.httpPort || 3000;
-      const newHttpPort = config.httpPort;
+      const newHttpPort = validated.httpPort;
       
-      const result = await context.toolRegistry.handleUpdateGlobalConfig({ config });
+      const result = await context.toolRegistry.handleUpdateGlobalConfig({ config: validated });
       
       // If httpPort changed and update was successful, restart server on new port
       if (result.success && newHttpPort && newHttpPort !== currentHttpPort) {
