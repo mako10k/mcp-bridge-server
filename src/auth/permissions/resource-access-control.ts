@@ -1,16 +1,19 @@
 import { AuthenticatedUser } from '../context/auth-context.js';
+import { MCPLifecycleManager } from '../../mcp/lifecycle/mcp-lifecycle-manager.js';
 
 /**
  * Simple resource access control checks.
  * This will later be extended to consult databases or lifecycle managers.
  */
 export class ResourceAccessControl {
+  constructor(private lifecycle = MCPLifecycleManager.getInstance()) {}
   /**
    * Lookup server instance metadata to determine owner.
    * Placeholder for future implementation.
    */
   protected async getServerInstance(id: string): Promise<{ userId: string } | null> {
-    // TODO: integrate with lifecycle manager
+    const inst = this.lifecycle.findInstanceById(id);
+    if (inst) return { userId: inst.context.userId! };
     return null;
   }
 

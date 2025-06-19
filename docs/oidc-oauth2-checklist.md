@@ -111,8 +111,8 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
   - [x] `DatabaseSettingsStore` 実装（オプション）
   - [x] `src/storage/settings-encryption.ts` - 設定暗号化
 - [x] **ユーザー設定API**
-  - [x] `src/routes/user-config.ts` - ユーザー設定APIエンドポイント
-  - [ ] 権限チェック統合
+- [x] `src/routes/user-config.ts` - ユーザー設定APIエンドポイント
+  - [x] 権限チェック統合
   - [x] エラーハンドリング
   - [ ] API テスト
 
