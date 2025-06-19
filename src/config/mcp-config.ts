@@ -18,6 +18,8 @@ export const MCPServerConfigSchema = z.object({
   args: z.array(z.string()).optional(),
   env: z.record(z.string()).optional(),
   cwd: z.string().optional(),
+  uid: z.number().optional().describe('User ID to run the server process as'),
+  gid: z.number().optional().describe('Group ID to run the server process as'),
   // HTTP/SSE transport options
   url: z.string().optional(),
   headers: z.record(z.string()).optional(),

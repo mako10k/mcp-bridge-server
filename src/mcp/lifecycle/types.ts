@@ -35,6 +35,10 @@ export interface MCPServerConfig {
   env?: Record<string, string>;
   resourceLimits?: ResourceLimits;
   workingDirectory?: string;
+  /** User ID to run the server process as */
+  uid?: number;
+  /** Group ID to run the server process as */
+  gid?: number;
   autoRestart?: boolean;
   maxRetries?: number;
 }

@@ -33,6 +33,8 @@ export interface MCPServerConfig {
   url?: string;
   cwd?: string;
   env?: Record<string, string>;
+  uid?: number;
+  gid?: number;
   enabled?: boolean;
   timeout?: number;
   restartOnFailure?: boolean;

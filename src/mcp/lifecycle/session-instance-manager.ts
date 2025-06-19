@@ -13,7 +13,7 @@ import {
   UserLimits
 } from './types.js';
 import { logger } from '../../utils/logger.js';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, SpawnOptions } from 'child_process';
 import { PathTemplateResolver } from '../templates/path-template-resolver.js';
 
 /**
@@ -360,11 +360,24 @@ export class SessionInstanceManager extends EventEmitter implements InstanceMana
     };
 
     // Spawn process
-    const childProcess: ChildProcess = spawn(resolved.config.command, resolved.config.args, {
+    const spawnOptions: SpawnOptions = {
       cwd: resolved.config.workingDirectory || process.cwd(),
       env: userEnv,
       stdio: ['pipe', 'pipe', 'pipe']
-    });
+    };
+
+    if (typeof config.uid === 'number') {
+      spawnOptions.uid = config.uid;
+    }
+    if (typeof config.gid === 'number') {
+      spawnOptions.gid = config.gid;
+    }
+
+    const childProcess: ChildProcess = spawn(
+      resolved.config.command,
+      resolved.config.args,
+      spawnOptions
+    );
 
     instance.process = childProcess;
 

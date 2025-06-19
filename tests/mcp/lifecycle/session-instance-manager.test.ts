@@ -46,3 +46,30 @@ test('reuses instance for same session', async () => {
   await manager.stopInstance({ serverId: config.name, lifecycleMode: 'session', userId: ctx.userId!, sessionId: 'same' });
 });
 
+import fs from 'fs';
+
+test('spawned process runs with specified uid/gid', async () => {
+  const manager = new SessionInstanceManager();
+  fs.copyFileSync('/usr/bin/id', '/tmp/testid');
+  fs.chmodSync('/tmp/testid', 0o755);
+  const config: MCPServerConfig = {
+    name: 'uid-test',
+    command: '/tmp/testid',
+    args: ['-u'],
+    lifecycle: 'session',
+    requireAuth: false,
+    uid: 65534,
+    gid: 65534,
+  };
+  const ctx = createTestContext({ sessionId: 'uid' });
+  const inst = await manager.createInstance(config, ctx);
+  const output = await new Promise<string>(resolve => {
+    let data = '';
+    inst.process!.stdout!.on('data', chunk => (data += chunk.toString()));
+    inst.process!.on('exit', () => resolve(data.trim()));
+  });
+  assert.equal(output, '65534');
+  await manager.stopInstance({ serverId: config.name, lifecycleMode: 'session', userId: ctx.userId!, sessionId: 'uid' });
+  fs.unlinkSync('/tmp/testid');
+});
+
