@@ -10,6 +10,38 @@ import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
 import { Server } from 'http';
 import net from 'net';
+<<<<<<< HEAD
+=======
+import { generateKeyPairSync } from 'crypto';
+
+// Import route handlers
+import { registerHealthRoutes } from './routes/health.js';
+import { registerMCPServerRoutes } from './routes/mcp-servers.js';
+import { registerToolRoutes } from './routes/tools.js';
+import { registerToolAliasRoutes } from './routes/tool-aliases.js';
+import { registerResourceRoutes } from './routes/resources.js';
+import { registerConfigRoutes } from './routes/config.js';
+import { registerLogRoutes } from './routes/logs.js';
+import { registerServerManagementRoutes } from './routes/server-management.js';
+import { registerAuthRoutes } from './routes/auth.js';
+import { registerUserConfigRoutes } from './routes/user-config.js';
+import { AuthManager } from './auth/managers/auth-manager.js';
+import { UserConfigManager } from './config/user-config-manager.js';
+import { registerErrorHandler } from './middleware/error-handler.js';
+import { AuthConfigManager, type AuthConfig } from './config/auth-config.js';
+import { JWTUtils } from './auth/utils/jwt-utils.js';
+import { requireAuth } from './middleware/auth-middleware.js';
+import { createAuthContextMiddleware } from './middleware/auth-context.js';
+import { AuthContextManager } from './auth/context/auth-context.js';
+import { requestLogger } from './middleware/request-logger.js';
+import { createSecurityHeadersMiddleware } from './middleware/security-headers.js';
+import { createRBACMiddleware } from './middleware/rbac-middleware.js';
+import { PermissionManager } from './auth/permissions/permission-manager.js';
+import { GoogleProvider } from './auth/providers/google-provider.js';
+import { AzureProvider } from './auth/providers/azure-provider.js';
+import { GitHubProvider } from './auth/providers/github-provider.js';
+import { GenericOIDCProvider } from './auth/providers/generic-oidc.js';
+>>>>>>> 0b80467 (feat(security): add helmet-based security headers)
 
 // Server instance reference for restart functionality
 let server: Server | null = null;
@@ -32,6 +64,147 @@ app.use(express.json());
 // Initialize MCP Bridge Manager and Tool Registry
 const mcpManager = new MCPBridgeManager();
 const toolRegistry = new BridgeToolRegistry(mcpManager, mcpConfig, configPath);
+<<<<<<< HEAD
+=======
+const authManager = new AuthManager();
+const authContextManager = new AuthContextManager();
+app.use(createAuthContextMiddleware(authContextManager));
+app.use(requestLogger);
+app.use(createSecurityHeadersMiddleware());
+const userConfigManager = new UserConfigManager();
+const authConfigManager = new AuthConfigManager(configPath);
+let authConfig = authConfigManager.getConfig();
+const permissionManager = new PermissionManager(
+  (authConfig.rbac as any) || {
+    defaultRole: 'viewer',
+    roles: {
+      viewer: { id: 'viewer', name: 'Viewer', permissions: ['read'], isSystemRole: true },
+      admin: { id: 'admin', name: 'Admin', permissions: ['*'], isSystemRole: true }
+    }
+  }
+);
+
+// Initialize JWT utilities
+let privateKey = process.env.JWT_PRIVATE_KEY;
+let publicKey = process.env.JWT_PUBLIC_KEY;
+if (!privateKey || !publicKey) {
+  const keys = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  privateKey = keys.privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
+  publicKey = keys.publicKey.export({ type: 'pkcs1', format: 'pem' }).toString();
+  logger.warn('JWT keys not provided; generated temporary keys');
+}
+const jwtConf = {
+  issuer: 'mcp-bridge',
+  audience: 'mcp-bridge-api',
+  expiresIn: '1h',
+  ...authConfig.jwt
+};
+const jwtUtils = new JWTUtils(jwtConf as any, privateKey, publicKey);
+
+const requireAuthMiddleware = requireAuth({ jwtUtils, mode: authConfig.mode });
+const requirePermission = createRBACMiddleware(
+  (authConfig.rbac as any) || {
+    defaultRole: 'viewer',
+    roles: {
+      viewer: { id: 'viewer', name: 'Viewer', permissions: ['read'], isSystemRole: true },
+      admin: { id: 'admin', name: 'Admin', permissions: ['*'], isSystemRole: true }
+    }
+  },
+  { checkPermission: (u, p, r) => permissionManager.checkPermission(u as any, p, r) }
+);
+
+const authHandlers = { requireAuth: requireAuthMiddleware, requirePermission };
+
+async function configureAuth(config: AuthConfig): Promise<void> {
+  authConfig = config;
+  requireAuthMiddleware.update({ jwtUtils, mode: config.mode });
+  requirePermission.update(
+    (config.rbac as any) || {
+      defaultRole: 'viewer',
+      roles: {
+        viewer: { id: 'viewer', name: 'Viewer', permissions: ['read'], isSystemRole: true },
+        admin: { id: 'admin', name: 'Admin', permissions: ['*'], isSystemRole: true }
+      }
+    },
+    { checkPermission: (u, p, r) => permissionManager.checkPermission(u as any, p, r) }
+  );
+  permissionManager.updateConfig(
+    (config.rbac as any) || {
+      defaultRole: 'viewer',
+      roles: {
+        viewer: { id: 'viewer', name: 'Viewer', permissions: ['read'], isSystemRole: true },
+        admin: { id: 'admin', name: 'Admin', permissions: ['*'], isSystemRole: true }
+      }
+    }
+  );
+
+  authManager.unregisterAllProviders();
+
+  for (const provider of config.providers) {
+    switch (provider.type) {
+      case 'google':
+        authManager.registerProvider(
+          new GoogleProvider({
+            clientId: provider.clientId,
+            clientSecret: provider.clientSecret,
+            redirectUri: provider.redirectUri || '',
+            scope: provider.scope
+          })
+        );
+        break;
+      case 'azure':
+        authManager.registerProvider(
+          new AzureProvider({
+            clientId: provider.clientId,
+            clientSecret: provider.clientSecret,
+            redirectUri: provider.redirectUri || '',
+            scope: provider.scope,
+            tenantId: provider.tenantId || ''
+          })
+        );
+        break;
+      case 'github':
+        authManager.registerProvider(
+          new GitHubProvider({
+            clientId: provider.clientId,
+            clientSecret: provider.clientSecret,
+            redirectUri: provider.redirectUri || '',
+            scope: provider.scope
+          })
+        );
+        break;
+      case 'oidc': {
+        const p = new GenericOIDCProvider({
+          clientId: provider.clientId,
+          clientSecret: provider.clientSecret,
+          redirectUri: provider.redirectUri || '',
+          scope: provider.scope,
+          issuer: (provider as any).issuer || '',
+          discovery: true
+        });
+        await p.init().catch((err) => logger.error('OIDC provider init failed', err));
+        authManager.registerProvider(p);
+        break;
+      }
+    }
+  }
+}
+
+await configureAuth(authConfig);
+
+authConfigManager.on('reloaded', async (newConfig) => {
+  const newJwtConf = {
+    issuer: 'mcp-bridge',
+    audience: 'mcp-bridge-api',
+    expiresIn: '1h',
+    ...newConfig.jwt
+  } as any;
+  jwtUtils.updateConfig(newJwtConf, privateKey!, publicKey!);
+  await configureAuth(newConfig);
+  logger.info('Authentication configuration reloaded');
+});
+
+>>>>>>> 0b80467 (feat(security): add helmet-based security headers)
 // Set reference to the tool registry
 mcpManager.setToolRegistry(toolRegistry);
 
