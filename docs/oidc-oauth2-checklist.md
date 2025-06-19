@@ -219,10 +219,10 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
 ## セキュリティ強化 🔒
 
 ### セキュリティヘッダー
-- [ ] Helmet.js 統合
-- [ ] Content Security Policy
-- [ ] HSTS (HTTP Strict Transport Security)
-- [ ] X-Frame-Options
+- [x] Helmet.js 統合
+- [x] Content Security Policy
+- [x] HSTS (HTTP Strict Transport Security)
+- [x] X-Frame-Options
 
 ### CORS設定
  - [x] `src/middleware/cors-middleware.ts`
