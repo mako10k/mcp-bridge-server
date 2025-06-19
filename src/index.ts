@@ -33,6 +33,7 @@ import { createAuthContextMiddleware } from './middleware/auth-context.js';
 import { AuthContextManager } from './auth/context/auth-context.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { createRBACMiddleware } from './middleware/rbac-middleware.js';
+import { PermissionManager } from './auth/permissions/permission-manager.js';
 import { GoogleProvider } from './auth/providers/google-provider.js';
 import { AzureProvider } from './auth/providers/azure-provider.js';
 import { GitHubProvider } from './auth/providers/github-provider.js';
@@ -71,6 +72,15 @@ app.use(requestLogger);
 const userConfigManager = new UserConfigManager();
 const authConfigManager = new AuthConfigManager(configPath);
 let authConfig = authConfigManager.getConfig();
+const permissionManager = new PermissionManager(
+  (authConfig.rbac as any) || {
+    defaultRole: 'viewer',
+    roles: {
+      viewer: { id: 'viewer', name: 'Viewer', permissions: ['read'], isSystemRole: true },
+      admin: { id: 'admin', name: 'Admin', permissions: ['*'], isSystemRole: true }
+    }
+  }
+);
 
 // Initialize JWT utilities
 let privateKey = process.env.JWT_PRIVATE_KEY;
@@ -97,7 +107,8 @@ const requirePermission = createRBACMiddleware(
       viewer: { id: 'viewer', name: 'Viewer', permissions: ['read'], isSystemRole: true },
       admin: { id: 'admin', name: 'Admin', permissions: ['*'], isSystemRole: true }
     }
-  }
+  },
+  { checkPermission: (u, p, r) => permissionManager.checkPermission(u as any, p, r) }
 );
 
 const authHandlers = { requireAuth: requireAuthMiddleware, requirePermission };
@@ -105,13 +116,25 @@ const authHandlers = { requireAuth: requireAuthMiddleware, requirePermission };
 async function configureAuth(config: AuthConfig): Promise<void> {
   authConfig = config;
   requireAuthMiddleware.update({ jwtUtils, mode: config.mode });
-  requirePermission.update((config.rbac as any) || {
-    defaultRole: 'viewer',
-    roles: {
-      viewer: { id: 'viewer', name: 'Viewer', permissions: ['read'], isSystemRole: true },
-      admin: { id: 'admin', name: 'Admin', permissions: ['*'], isSystemRole: true }
+  requirePermission.update(
+    (config.rbac as any) || {
+      defaultRole: 'viewer',
+      roles: {
+        viewer: { id: 'viewer', name: 'Viewer', permissions: ['read'], isSystemRole: true },
+        admin: { id: 'admin', name: 'Admin', permissions: ['*'], isSystemRole: true }
+      }
+    },
+    { checkPermission: (u, p, r) => permissionManager.checkPermission(u as any, p, r) }
+  );
+  permissionManager.updateConfig(
+    (config.rbac as any) || {
+      defaultRole: 'viewer',
+      roles: {
+        viewer: { id: 'viewer', name: 'Viewer', permissions: ['read'], isSystemRole: true },
+        admin: { id: 'admin', name: 'Admin', permissions: ['*'], isSystemRole: true }
+      }
     }
-  });
+  );
 
   authManager.unregisterAllProviders();
 
