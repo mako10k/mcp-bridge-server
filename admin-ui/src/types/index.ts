@@ -77,6 +77,12 @@ export interface GlobalConfig {
   retryInterval?: number;
   maxConcurrentConnections?: number;
   requestTimeout?: number;
+  security?: {
+    network?: {
+      allowExternalAccess?: boolean;
+      listenAddress?: string;
+    };
+  };
 }
 
 export interface ServerStats {

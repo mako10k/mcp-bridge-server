@@ -7,6 +7,7 @@ import { MCPConfig, MCPServerConfig, MCPConfigSchema, MCPServerConfigSchema, sav
 import { logger } from '../utils/logger.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { listenAddressSecurityManager } from './listen-address-security.js';
 
 export interface ConfigUpdateResult {
   success: boolean;
@@ -207,6 +208,46 @@ export class DynamicConfigManager {
         errors: [errorMessage],
       };
     }
+  }
+
+  /**
+   * Update network security settings (listen address and external access)
+   */
+  async updateNetworkSecurity(
+    updates: Partial<NonNullable<MCPConfig['security']>['network']>
+  ): Promise<ConfigUpdateResult> {
+    try {
+      const newConfig = {
+        ...this.currentConfig,
+        security: {
+          ...this.currentConfig.security,
+          network: {
+            ...this.currentConfig.security?.network,
+            ...updates
+          }
+        }
+      } as MCPConfig;
+
+      const validatedConfig = MCPConfigSchema.parse(newConfig);
+
+      await this.saveConfig(validatedConfig);
+      listenAddressSecurityManager.applyConfig(validatedConfig.security!);
+
+      logger.info(`Updated network security settings`);
+      return { success: true, message: 'Network security updated', config: validatedConfig };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to update network security settings:', error);
+      return { success: false, message: `Failed to update network security: ${errMsg}`, errors: [errMsg] };
+    }
+  }
+
+  getNetworkSecuritySettings(): NonNullable<MCPConfig['security']>['network'] {
+    return {
+      allowExternalAccess: this.currentConfig.security?.network.allowExternalAccess ?? false,
+      listenAddress: this.currentConfig.security?.network.listenAddress ?? '127.0.0.1',
+      trustedProxies: this.currentConfig.security?.network.trustedProxies ?? []
+    };
   }
 
   /**
