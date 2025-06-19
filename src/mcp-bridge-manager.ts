@@ -9,6 +9,7 @@ import { MCPInstanceContext } from './mcp/lifecycle/types.js';
 import crypto from 'crypto';
 import { IBridgeToolRegistry } from './bridge-tool-registry.js';
 
+import { AuthContextManager } from "./auth/context/auth-context.js";
 // Server status enumeration
 export enum MCPServerStatus {
   CONNECTED = 'connected',      // Successfully connected
@@ -55,6 +56,7 @@ export class MCPBridgeManager {
   private config: MCPConfig | null = null;
   private toolRegistry: IBridgeToolRegistry | null = null;
   private lifecycleManager = new MCPLifecycleManager();
+  private authContextManager = new AuthContextManager();
   private retryTimeouts: Map<string, NodeJS.Timeout> = new Map();
   
   // Default retry configuration
@@ -467,16 +469,8 @@ export class MCPBridgeManager {
       return this.callTool(serverId, toolName, arguments_);
     }
 
-    const user = (req as any).user || {};
-    const context: MCPInstanceContext = {
-      lifecycleMode: serverConfig.lifecycle as any,
-      userId: user.id || user.sub,
-      userEmail: user.email,
-      sessionId: (req as any).sessionID,
-      authInfo: user,
-      requestId: req.headers['x-request-id']?.toString() || crypto.randomUUID(),
-      timestamp: new Date()
-    };
+    const context = this.authContextManager.extractContext(req);
+    context.lifecycleMode = serverConfig.lifecycle as any;
 
     const instance = await this.lifecycleManager.getOrCreateInstance(serverConfig as any, context);
     return instance.client?.callTool({ name: toolName, arguments: arguments_ });
