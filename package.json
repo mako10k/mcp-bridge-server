@@ -58,9 +58,10 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/helmet": "^4.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.0.1",
     "@types/pidusage": "^2.0.5",
-    "@types/helmet": "^4.0.0",
     "nodemon": "^3.1.10",
     "typescript": "^5.8.3"
   },
@@ -69,6 +70,7 @@
     "chokidar": "^4.0.3",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "express-rate-limit": "^6.11.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "pidusage": "^4.0.1",

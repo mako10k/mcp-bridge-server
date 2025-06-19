@@ -82,6 +82,8 @@ export const MCPConfigSchema = z.object({
 });
 
 export type MCPConfig = z.infer<typeof MCPConfigSchema>;
+export const GlobalConfigSchema = MCPConfigSchema.shape.global;
+export type GlobalConfig = z.infer<typeof GlobalConfigSchema>;
 
 /**
  * Load MCP configuration from a file
