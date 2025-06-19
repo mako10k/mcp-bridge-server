@@ -25,7 +25,8 @@ export default function GlobalSettings() {
     try {
       setLoading(true);
       const globalConfig = await mcpBridge.getGlobalConfig();
-      setConfig(globalConfig);
+      const network = await mcpBridge.getNetworkSecurity();
+      setConfig({ ...globalConfig, security: { network } });
     } catch (error) {
       console.error('Error fetching global config:', error);
       setMessage({ type: 'error', text: 'Failed to load global configuration' });
@@ -41,8 +42,11 @@ export default function GlobalSettings() {
       // Check if port has changed
       const currentConfig = await mcpBridge.getGlobalConfig();
       const portChanged = currentConfig.httpPort !== config.httpPort;
-      
+
       await mcpBridge.updateGlobalConfig(config);
+      if (config.security?.network) {
+        await mcpBridge.updateNetworkSecurity(config.security.network);
+      }
       
       if (portChanged) {
         setMessage({ 
@@ -64,6 +68,22 @@ export default function GlobalSettings() {
 
   const updateConfig = (key: keyof GlobalConfig, value: any) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+  };
+
+  const updateNetworkSecurity = (
+    key: 'listenAddress' | 'allowExternalAccess',
+    value: any
+  ) => {
+    setConfig(prev => ({
+      ...prev,
+      security: {
+        ...prev.security,
+        network: {
+          ...prev.security?.network,
+          [key]: value
+        }
+      }
+    }));
   };
 
   const handleRestartServer = async () => {
@@ -240,6 +260,40 @@ export default function GlobalSettings() {
               <p>Port number for the MCP Bridge HTTP server (default: 3000)</p>
               <p className="text-amber-600 font-medium">⚠️ Port changes will automatically restart the server. Other MCP clients may need reconfiguration.</p>
             </div>
+          </div>
+
+          {/* Listen Address */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Listen Address
+            </label>
+            <input
+              type="text"
+              value={config.security?.network?.listenAddress || '127.0.0.1'}
+              onChange={(e) => updateNetworkSecurity('listenAddress', e.target.value)}
+              className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              Address to bind the HTTP server (e.g., 127.0.0.1)
+            </p>
+          </div>
+
+          {/* Allow External Access */}
+          <div>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={config.security?.network?.allowExternalAccess || false}
+                onChange={(e) => updateNetworkSecurity('allowExternalAccess', e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <span className="ml-2 text-sm font-medium text-gray-700">
+                Allow External Access
+              </span>
+            </label>
+            <p className="mt-1 ml-6 text-sm text-gray-500">
+              Enable network access from non-localhost addresses when authentication is enabled.
+            </p>
           </div>
 
           {/* Log Level */}
