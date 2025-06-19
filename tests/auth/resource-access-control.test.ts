@@ -43,3 +43,14 @@ test('user cannot access unowned server instance', async () => {
   const user = makeUser('u1');
   assert.equal(await ac.checkAccess(user, 'read', 'server_instance', 'i1'), false);
 });
+
+test('integration with lifecycle manager', async () => {
+  const fakeLifecycle = {
+    findInstanceById: (id: string) =>
+      id === 'i1' ? ({ context: { userId: 'u1' } } as any) : undefined,
+    listActiveInstances: () => []
+  } as any;
+  const ac = new ResourceAccessControl(fakeLifecycle);
+  const user = makeUser('u1');
+  assert.equal(await ac.checkAccess(user, 'read', 'server_instance', 'i1'), true);
+});

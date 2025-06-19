@@ -122,6 +122,16 @@ export class MCPLifecycleManager extends EventEmitter {
     this.cleanup.stop();
   }
 
+  /**
+   * Find an instance by its unique ID across all managers.
+   */
+  findInstanceById(id: string): MCPServerInstance | undefined {
+    for (const inst of this.listActiveInstances()) {
+      if (inst.id === id) return inst;
+    }
+    return undefined;
+  }
+
   async stopMonitoring(): Promise<void> {
     await this.monitor.stop();
   }
