@@ -6,6 +6,7 @@ import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../utils/logger.js';
+import { AuthConfigSchema } from './auth-config.js';
 
 // Zod schema for MCP server configuration
 export const MCPServerConfigSchema = z.object({
@@ -17,6 +18,8 @@ export const MCPServerConfigSchema = z.object({
   args: z.array(z.string()).optional(),
   env: z.record(z.string()).optional(),
   cwd: z.string().optional(),
+  uid: z.number().optional().describe('User ID to run the server process as'),
+  gid: z.number().optional().describe('Group ID to run the server process as'),
   // HTTP/SSE transport options
   url: z.string().optional(),
   headers: z.record(z.string()).optional(),
@@ -79,9 +82,28 @@ export const MCPConfigSchema = z.object({
     requestTimeout: z.number().default(30000),
     fixInvalidToolSchemas: z.boolean().default(false).describe('Whether to auto-fix invalid tool schemas or reject them'),
   }).optional(),
+  security: z.object({
+    authentication: z.object({
+      enabled: z.boolean().default(false),
+    }).default({ enabled: false }),
+    network: z.object({
+      allowExternalAccess: z.boolean().default(false),
+      listenAddress: z.string().default('127.0.0.1'),
+      trustedProxies: z.array(z.string()).default([]),
+    }).default({ allowExternalAccess: false, listenAddress: '127.0.0.1', trustedProxies: [] }),
+    cors: z
+      .object({
+        allowedOrigins: z.array(z.string()).default(['*']),
+        allowCredentials: z.boolean().default(false),
+      })
+      .default({ allowedOrigins: ['*'], allowCredentials: false }),
+  }).optional(),
+  auth: AuthConfigSchema.optional(),
 });
 
 export type MCPConfig = z.infer<typeof MCPConfigSchema>;
+export const GlobalConfigSchema = MCPConfigSchema.shape.global;
+export type GlobalConfig = z.infer<typeof GlobalConfigSchema>;
 
 /**
  * Load MCP configuration from a file
@@ -170,6 +192,25 @@ export function getDefaultConfig(): MCPConfig {
       maxConcurrentConnections: 10,
       requestTimeout: 30000,
       fixInvalidToolSchemas: false,
+    },
+    security: {
+      authentication: {
+        enabled: false,
+      },
+      network: {
+        allowExternalAccess: false,
+        listenAddress: '127.0.0.1',
+        trustedProxies: [],
+      },
+      cors: {
+        allowedOrigins: ['*'],
+        allowCredentials: false,
+      },
+    },
+    auth: {
+      enabled: false,
+      mode: 'optional',
+      providers: [],
     },
   };
 }

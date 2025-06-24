@@ -1,16 +1,35 @@
 import api from './api';
-import type { 
-  MCPServer, 
-  MCPServerConfig, 
-  Tool, 
-  ToolAlias, 
-  GlobalConfig, 
+import type {
+  MCPServer,
+  MCPServerConfig,
+  Tool,
+  ToolAlias,
+  GlobalConfig,
   ServerStats,
   LogEntry,
   ToolDiscoveryRule
 } from '../types';
+import type { AuthUser } from '../types';
 
 export class MCPBridgeService {
+  // Authentication
+  async getCurrentUser(): Promise<AuthUser | null> {
+    try {
+      const res = await api.get('/auth/user');
+      return res.data.user || null;
+    } catch {
+      return null;
+    }
+  }
+
+  login(provider = 'google'): void {
+    window.location.href = `/auth/login/${provider}`;
+  }
+
+  async logout(): Promise<void> {
+    await api.post('/auth/logout');
+  }
+
   // Server Management
   async getServers(): Promise<MCPServer[]> {
     const response = await api.get('/mcp/servers');
@@ -102,6 +121,18 @@ export class MCPBridgeService {
 
   async updateGlobalConfig(config: Partial<GlobalConfig>): Promise<void> {
     await api.put('/mcp/config/global', { config });
+  }
+
+  async updateNetworkSecurity(updates: {
+    listenAddress?: string;
+    allowExternalAccess?: boolean;
+  }): Promise<void> {
+    await api.put('/mcp/config/network', updates);
+  }
+
+  async getNetworkSecurity(): Promise<{ listenAddress: string; allowExternalAccess: boolean }> {
+    const res = await api.get('/mcp/config/network');
+    return res.data.config;
   }
 
   // Tool Discovery Rules

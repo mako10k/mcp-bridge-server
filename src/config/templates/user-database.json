@@ -1,0 +1,46 @@
+{
+  "id": "user-database",
+  "name": "Personal Database",
+  "description": "Lightweight SQLite database server for user data",
+  "category": "database",
+  "adminControlled": {
+    "command": "npx",
+    "baseArgs": ["@modelcontextprotocol/server-sqlite", "{dbPath}"],
+    "lifecycle": "user",
+    "requireAuth": true,
+    "securityLevel": "medium",
+    "resourceLimits": {
+      "maxMemoryMB": 256,
+      "maxCpuPercent": 50,
+      "timeoutSeconds": 30
+    }
+  },
+  "userCustomizable": {
+    "enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable personal database"
+    },
+    "dbPath": {
+      "type": "path",
+      "default": "/home/{userId}/database.sqlite",
+      "description": "Database file path",
+      "constraints": {
+        "allowedPatterns": ["/home/{userId}/**"]
+      }
+    }
+  },
+  "environmentVariables": {
+    "adminControlled": {
+      "MCP_SERVER_TYPE": "database"
+    },
+    "userCustomizable": {
+      "LOG_LEVEL": {
+        "type": "enum",
+        "values": ["error", "warn", "info", "debug"],
+        "default": "warn",
+        "description": "Log verbosity"
+      }
+    }
+  }
+}

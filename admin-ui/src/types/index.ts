@@ -33,6 +33,8 @@ export interface MCPServerConfig {
   url?: string;
   cwd?: string;
   env?: Record<string, string>;
+  uid?: number;
+  gid?: number;
   enabled?: boolean;
   timeout?: number;
   restartOnFailure?: boolean;
@@ -75,6 +77,12 @@ export interface GlobalConfig {
   retryInterval?: number;
   maxConcurrentConnections?: number;
   requestTimeout?: number;
+  security?: {
+    network?: {
+      allowExternalAccess?: boolean;
+      listenAddress?: string;
+    };
+  };
 }
 
 export interface ServerStats {
@@ -92,3 +100,4 @@ export interface LogEntry {
   serverId?: string;
   error?: string;
 }
+export type { AuthUser } from './auth';

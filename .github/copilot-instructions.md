@@ -2,6 +2,24 @@
 
 <!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
 
+## 🚨 IMPORTANT: AI Agent Task Management
+
+### MANDATORY: Check AGENT.md First
+**BEFORE starting any work, ALWAYS check `AGENT.md` for current task status and implementation instructions.**
+
+- **Current Phase**: Multi-User MCP Bridge Server Implementation
+- **Active Task**: Authentication, User Settings, and Lifecycle Management
+- **Progress Tracking**: Update `docs/oidc-oauth2-checklist.md` regularly
+- **Design Reference**: Read all docs in `docs/` directory before coding
+
+### Task Workflow
+1. 📖 **Read AGENT.md** - Check current phase and next tasks
+2. 📚 **Review Design Docs** - Understand architecture before implementing
+3. 💻 **Implement** - Follow the specifications exactly
+4. ✅ **Update Progress** - Mark completed items in checklist
+5. 📝 **Commit** - Document progress with clear commit messages
+6. 🔄 **Update AGENT.md** - Update status and next steps
+
 ## Project Overview
 
 This is an MCP Bridge Server project that acts as an HTTP gateway for multiple STDIO-based MCP (Model Context Protocol) servers. This project solves VS Code's STDIO MCP server execution bugs by providing a unified HTTP API.
@@ -66,6 +84,13 @@ This is an MCP Bridge Server project that acts as an HTTP gateway for multiple S
   - Verify clean state with: `git status --ignored`
 - **Testing**: Ensure all new features are testable
 - **Performance**: Optimize for concurrent MCP server connections
+
+### AGENT.md Integration
+- **Before any implementation**: Read `AGENT.md` for current task and phase
+- **Progress tracking**: Update `docs/oidc-oauth2-checklist.md` with completed items
+- **Design reference**: Consult design docs in `docs/` directory before coding
+- **Status updates**: Update `AGENT.md` with implementation progress and blockers
+- **Security focus**: Follow security guidelines in `AGENT.md` checklist
 
 ### Configuration Management
 - **Dynamic Updates**: Support runtime configuration changes without restart

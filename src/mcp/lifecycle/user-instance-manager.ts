@@ -1,0 +1,443 @@
+/**
+ * @fileoverview User instance manager for MCP servers
+ * Manages user-specific MCP server instances with isolation and resource limits
+ */
+
+import { EventEmitter } from 'events';
+import { 
+  MCPServerInstance, 
+  MCPServerConfig, 
+  MCPInstanceContext, 
+  InstanceKey, 
+  InstanceManager,
+  UserLimits 
+} from './types.js';
+import { logger } from '../../utils/logger.js';
+import { spawn, ChildProcess, SpawnOptions } from 'child_process';
+import { PathTemplateResolver } from '../templates/path-template-resolver.js';
+
+/**
+ * Manages user-specific MCP server instances
+ * Each user gets their own isolated instances
+ */
+export class UserInstanceManager extends EventEmitter implements InstanceManager {
+  private instances = new Map<string, MCPServerInstance>();
+  private templateResolver = new PathTemplateResolver();
+  private userLimits = new Map<string, UserLimits>();
+
+  constructor() {
+    super();
+    this.setDefaultUserLimits();
+  }
+
+  /**
+   * Get existing user instance
+   */
+  async getInstance(key: InstanceKey): Promise<MCPServerInstance | undefined> {
+    if (key.lifecycleMode !== 'user' || !key.userId) {
+      throw new Error('UserInstanceManager requires user lifecycle mode and userId');
+    }
+
+    const instanceKey = this.getInstanceKey(key);
+    const instance = this.instances.get(instanceKey);
+    
+    if (instance) {
+      // Update last accessed time
+      instance.lastAccessed = new Date();
+      instance.metrics.requestCount++;
+    }
+    
+    return instance;
+  }
+
+  /**
+   * Create a new user instance
+   */
+  async createInstance(
+    config: MCPServerConfig, 
+    context: MCPInstanceContext
+  ): Promise<MCPServerInstance> {
+    if (config.lifecycle !== 'user' || !context.userId) {
+      throw new Error('UserInstanceManager requires user lifecycle mode and userId');
+    }
+
+    const key: InstanceKey = {
+      serverId: config.name,
+      lifecycleMode: 'user',
+      userId: context.userId
+    };
+
+    // Check if instance already exists
+    const existing = await this.getInstance(key);
+    if (existing && existing.status === 'running') {
+      logger.info(`User instance already exists: ${existing.id}`);
+      return existing;
+    }
+
+    // Check user limits
+    await this.checkUserLimits(context.userId, config);
+
+    const instanceId = `user_${context.userId}_${config.name}_${Date.now()}`;
+    
+    logger.info(`Creating user instance: ${instanceId}`);
+
+    // Create instance object
+    const instance: MCPServerInstance = {
+      id: instanceId,
+      serverId: config.name,
+      config,
+      context,
+      createdAt: new Date(),
+      lastAccessed: new Date(),
+      status: 'starting',
+      metrics: {
+        requestCount: 0,
+        errorCount: 0
+      },
+      retryCount: 0
+    };
+
+    // Store instance
+    const instanceKey = this.getInstanceKey(key);
+    this.instances.set(instanceKey, instance);
+
+    try {
+      // Start the process
+      await this.startProcess(instance);
+      
+      instance.status = 'running';
+      logger.info(`User instance started successfully: ${instanceId}`);
+      
+      this.emit('instance-created', instance);
+      this.emit('instance-started', instance);
+      
+      return instance;
+
+    } catch (error) {
+      instance.status = 'error';
+      instance.error = error as Error;
+      instance.metrics.errorCount++;
+      
+      logger.error(`Failed to start user instance ${instanceId}:`, error);
+      this.emit('instance-error', instance, error as Error);
+      
+      // Remove failed instance
+      this.instances.delete(instanceKey);
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Stop a user instance
+   */
+  async stopInstance(key: InstanceKey): Promise<void> {
+    if (key.lifecycleMode !== 'user' || !key.userId) {
+      throw new Error('UserInstanceManager requires user lifecycle mode and userId');
+    }
+
+    const instanceKey = this.getInstanceKey(key);
+    const instance = this.instances.get(instanceKey);
+    
+    if (!instance) {
+      logger.warn(`User instance not found: ${instanceKey}`);
+      return;
+    }
+
+    logger.info(`Stopping user instance: ${instance.id}`);
+    
+    instance.status = 'stopping';
+    
+    try {
+      if (instance.process) {
+        // Graceful shutdown first
+        instance.process.kill('SIGTERM');
+        
+        // Force kill after timeout
+        setTimeout(() => {
+          if (instance.process && !instance.process.killed) {
+            logger.warn(`Force killing user instance: ${instance.id}`);
+            instance.process.kill('SIGKILL');
+          }
+        }, 5000);
+      }
+
+      // Wait for process to exit
+      await new Promise<void>((resolve) => {
+        if (!instance.process) {
+          resolve();
+          return;
+        }
+
+        instance.process.on('exit', () => resolve());
+        
+        // Timeout after 10 seconds
+        setTimeout(() => resolve(), 10000);
+      });
+
+      instance.status = 'stopped';
+      this.instances.delete(instanceKey);
+      
+      logger.info(`User instance stopped: ${instance.id}`);
+      this.emit('instance-stopped', instance);
+
+    } catch (error) {
+      instance.status = 'error';
+      instance.error = error as Error;
+      
+      logger.error(`Error stopping user instance ${instance.id}:`, error);
+      this.emit('instance-error', instance, error as Error);
+      
+      throw error;
+    }
+  }
+
+  /**
+   * List user instances
+   */
+  listInstances(filter?: Partial<InstanceKey>): MCPServerInstance[] {
+    let instances = Array.from(this.instances.values());
+    
+    if (filter?.serverId) {
+      instances = instances.filter(i => i.serverId === filter.serverId);
+    }
+    
+    if (filter?.userId) {
+      instances = instances.filter(i => i.context.userId === filter.userId);
+    }
+    
+    return instances;
+  }
+
+  /**
+   * Cleanup unused user instances
+   */
+  async cleanup(): Promise<number> {
+    const now = new Date();
+    const cleanupPromises: Promise<void>[] = [];
+
+    for (const [instanceKey, instance] of this.instances.entries()) {
+      // Check if instance should be cleaned up
+      const idleTime = now.getTime() - instance.lastAccessed.getTime();
+      const maxIdleTime = 15 * 60 * 1000; // 15 minutes for user instances
+
+      if (idleTime > maxIdleTime && instance.status === 'running') {
+        logger.info(`Cleaning up idle user instance: ${instance.id}`);
+        cleanupPromises.push(this.stopInstance({
+          serverId: instance.serverId,
+          lifecycleMode: 'user',
+          userId: instance.context.userId
+        }));
+      }
+    }
+
+    if (cleanupPromises.length > 0) {
+      await Promise.all(cleanupPromises);
+      logger.info(`Cleaned up ${cleanupPromises.length} user instances`);
+    }
+
+    return cleanupPromises.length;
+  }
+
+  /**
+   * Stop all instances for a specific user
+   */
+  async stopUserInstances(userId: string): Promise<void> {
+    const userInstances = this.listInstances({ userId });
+    const stopPromises = userInstances.map(instance => 
+      this.stopInstance({
+        serverId: instance.serverId,
+        lifecycleMode: 'user',
+        userId
+      })
+    );
+
+    await Promise.all(stopPromises);
+    logger.info(`Stopped ${stopPromises.length} instances for user: ${userId}`);
+  }
+
+  /**
+   * Get instance count for a user
+   */
+  getUserInstanceCount(userId: string): number {
+    return this.listInstances({ userId }).length;
+  }
+
+  /**
+   * Set user limits
+   */
+  setUserLimits(userId: string, limits: UserLimits): void {
+    this.userLimits.set(userId, limits);
+    logger.info(`Updated limits for user ${userId}:`, limits);
+  }
+
+  /**
+   * Get user limits
+   */
+  getUserLimits(userId: string): UserLimits {
+    return this.userLimits.get(userId) || this.getDefaultUserLimits();
+  }
+
+  /**
+   * Generate instance key
+   */
+  private getInstanceKey(key: InstanceKey): string {
+    return `${key.serverId}_${key.userId}`;
+  }
+
+  /**
+   * Check if user can create new instance
+   */
+  private async checkUserLimits(userId: string, config: MCPServerConfig): Promise<void> {
+    const limits = this.getUserLimits(userId);
+    const currentCount = this.getUserInstanceCount(userId);
+
+    // Check instance limit
+    if (currentCount >= limits.maxUserInstances) {
+      throw new Error(`User ${userId} has reached maximum instance limit: ${limits.maxUserInstances}`);
+    }
+
+    // Check lifecycle mode permission
+    if (!limits.allowedLifecycleModes.includes(config.lifecycle)) {
+      throw new Error(`User ${userId} is not allowed to use lifecycle mode: ${config.lifecycle}`);
+    }
+
+    // Check resource limits
+    if (config.resourceLimits) {
+      if (limits.resourceQuota.maxMemoryMB && 
+          config.resourceLimits.maxMemoryMB && 
+          config.resourceLimits.maxMemoryMB > limits.resourceQuota.maxMemoryMB) {
+        throw new Error(`Requested memory exceeds user quota: ${config.resourceLimits.maxMemoryMB}MB > ${limits.resourceQuota.maxMemoryMB}MB`);
+      }
+    }
+  }
+
+  /**
+   * Start the MCP server process for user
+   */
+  private async startProcess(instance: MCPServerInstance): Promise<void> {
+    const { config, context } = instance;
+
+    // Create user-specific template variables
+    const templateVars = this.templateResolver.createTemplateVariables({
+      userId: context.userId,
+      userEmail: context.userEmail,
+      requestId: context.requestId,
+      timestamp: context.timestamp
+    });
+
+    const resolved = this.templateResolver.validateAndResolveConfig(
+      {
+        command: config.command,
+        args: config.args,
+        env: config.env,
+        workingDirectory: config.workingDirectory,
+        pathTemplates: config.pathTemplates
+      },
+      templateVars
+    );
+
+    if (!resolved.validation.valid) {
+      throw new Error(`Invalid configuration: ${resolved.validation.errors.join(', ')}`);
+    }
+
+    // Log warnings
+    if (resolved.validation.warnings.length > 0) {
+      logger.warn(`Configuration warnings for ${instance.id}:`, resolved.validation.warnings);
+    }
+
+    // Add user-specific environment variables
+    const userEnv = {
+      ...process.env,
+      ...resolved.config.env,
+      MCP_USER_ID: context.userId,
+      MCP_USER_EMAIL: context.userEmail || '',
+      MCP_LIFECYCLE_MODE: 'user'
+    };
+
+    // Spawn process
+    const spawnOptions: SpawnOptions = {
+      cwd: resolved.config.workingDirectory || process.cwd(),
+      env: userEnv,
+      stdio: ['pipe', 'pipe', 'pipe']
+    };
+
+    if (typeof config.uid === 'number') {
+      spawnOptions.uid = config.uid;
+    }
+    if (typeof config.gid === 'number') {
+      spawnOptions.gid = config.gid;
+    }
+
+    const childProcess: ChildProcess = spawn(
+      resolved.config.command,
+      resolved.config.args,
+      spawnOptions
+    );
+
+    instance.process = childProcess;
+
+    // Handle process events
+    childProcess.on('error', (error: Error) => {
+      instance.status = 'error';
+      instance.error = error;
+      instance.metrics.errorCount++;
+      logger.error(`User instance process error ${instance.id}:`, error);
+      this.emit('instance-error', instance, error);
+    });
+
+    childProcess.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
+      const wasRunning = instance.status === 'running';
+      instance.status = code === 0 ? 'stopped' : 'crashed';
+      
+      logger.info(`User instance process exited ${instance.id}: code=${code}, signal=${signal}`);
+      
+      if (wasRunning) {
+        this.emit('instance-stopped', instance);
+      }
+    });
+
+    // Wait for process to start
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Process start timeout'));
+      }, 10000);
+
+      childProcess.once('spawn', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+
+      childProcess.once('error', (error: Error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+    });
+  }
+
+  /**
+   * Set default user limits
+   */
+  private setDefaultUserLimits(): void {
+    // These should come from configuration
+    const defaultLimits: UserLimits = {
+      maxUserInstances: 5,
+      maxSessionInstances: 3,
+      allowedLifecycleModes: ['user', 'session'],
+      resourceQuota: {
+        maxMemoryMB: 1024,
+        maxCpuPercent: 50,
+        timeoutMinutes: 60
+      }
+    };
+
+    this.userLimits.set('default', defaultLimits);
+  }
+
+  /**
+   * Get default user limits
+   */
+  private getDefaultUserLimits(): UserLimits {
+    return this.userLimits.get('default')!;
+  }
+}

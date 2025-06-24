@@ -1,0 +1,28 @@
+{
+  "id": "example-sse",
+  "name": "Example SSE Server",
+  "description": "Demo SSE server accessible over HTTP",
+  "category": "api",
+  "adminControlled": {
+    "command": "",
+    "baseArgs": [],
+    "lifecycle": "global",
+    "requireAuth": false,
+    "securityLevel": "low",
+    "resourceLimits": {
+      "maxMemoryMB": 256,
+      "maxCpuPercent": 30,
+      "timeoutSeconds": 30
+    }
+  },
+  "userCustomizable": {
+    "enabled": { "type": "boolean", "default": true, "description": "Enable server" },
+    "url": { "type": "string", "default": "http://localhost:3001/sse", "description": "Server URL" }
+  },
+  "environmentVariables": {
+    "adminControlled": {},
+    "userCustomizable": {
+      "SSE_API_TOKEN": { "type": "string", "default": "", "description": "API token" }
+    }
+  }
+}

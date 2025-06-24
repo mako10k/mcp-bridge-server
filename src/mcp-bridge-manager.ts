@@ -4,8 +4,12 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { logger } from './utils/logger.js';
 import { MCPServerConfig, loadMCPConfig, MCPConfig, getEnabledServers } from './config/mcp-config.js';
+import { MCPLifecycleManager } from './mcp/lifecycle/mcp-lifecycle-manager.js';
+import { MCPInstanceContext } from './mcp/lifecycle/types.js';
+import crypto from 'crypto';
 import { IBridgeToolRegistry } from './bridge-tool-registry.js';
 
+import { AuthContextManager } from "./auth/context/auth-context.js";
 // Server status enumeration
 export enum MCPServerStatus {
   CONNECTED = 'connected',      // Successfully connected
@@ -51,6 +55,8 @@ export class MCPBridgeManager {
   private connections: Map<string, MCPConnection> = new Map();
   private config: MCPConfig | null = null;
   private toolRegistry: IBridgeToolRegistry | null = null;
+  private lifecycleManager = new MCPLifecycleManager();
+  private authContextManager = new AuthContextManager();
   private retryTimeouts: Map<string, NodeJS.Timeout> = new Map();
   
   // Default retry configuration
@@ -448,6 +454,28 @@ export class MCPBridgeManager {
     }
   }
 
+  async callToolWithContext(
+    serverId: string,
+    toolName: string,
+    arguments_: Record<string, any>,
+    req: import('express').Request
+  ): Promise<any> {
+    const serverConfig = this.config?.servers.find(s => s.name === serverId) as any;
+    if (!serverConfig) {
+      throw new Error(`Server not found: ${serverId}`);
+    }
+
+    if (serverConfig.lifecycle === 'global' || !serverConfig.lifecycle) {
+      return this.callTool(serverId, toolName, arguments_);
+    }
+
+    const context = this.authContextManager.extractContext(req);
+    context.lifecycleMode = serverConfig.lifecycle as any;
+
+    const instance = await this.lifecycleManager.getOrCreateInstance(serverConfig as any, context);
+    return instance.client?.callTool({ name: toolName, arguments: arguments_ });
+  }
+
   async listResources(serverId: string): Promise<any[]> {
     // Ensure server connection before listing resources
     const isConnected = await this.ensureServerConnection(serverId);
@@ -599,6 +627,10 @@ export class MCPBridgeManager {
   // Get BridgeToolRegistry instance
   getToolRegistry(): IBridgeToolRegistry | null {
     return this.toolRegistry;
+  }
+
+  getLifecycleManager(): MCPLifecycleManager {
+    return this.lifecycleManager;
   }
 
   /**
