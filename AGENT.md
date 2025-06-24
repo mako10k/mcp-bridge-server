@@ -71,7 +71,7 @@ Before starting any implementation, **MUST READ** these design documents in orde
   - [x] Core type definitions (`src/mcp/lifecycle/types.ts`)
   - [x] Lifecycle mode definitions (Global/User/Session)
   - [x] MCPInstanceContext interface implementation
-  - [ ] Main MCPLifecycleManager integration
+  - [x] Main MCPLifecycleManager integration (Partially Completed)
 
 - [x] **Path Template System**
   - [x] PathTemplateResolver implementation (`src/mcp/templates/path-template-resolver.ts`)
@@ -81,8 +81,8 @@ Before starting any implementation, **MUST READ** these design documents in orde
 - [x] **Instance Management Foundation**
   - [x] GlobalInstanceManager - shared instance management (`src/mcp/lifecycle/global-instance-manager.ts`)
   - [x] UserInstanceManager - user-specific instances (`src/mcp/lifecycle/user-instance-manager.ts`)
-  - [ ] SessionInstanceManager - session-specific instances
-  - [ ] Main lifecycle manager integration
+  - [ ] SessionInstanceManager - session-specific instances (Pending)
+  - [ ] Main lifecycle manager integration (Pending for Session Instances)
 
 #### 1.5.2 Security & Resource Management (PENDING)
 - [ ] **Resource Limits**
@@ -98,14 +98,13 @@ Before starting any implementation, **MUST READ** these design documents in orde
 
 #### 1.5.3 Monitoring & Operations (PENDING)
 - [ ] **Instance Monitoring**
-  - [ ] Instance metrics collection
-  - [ ] Automatic cleanup functionality
-  - [ ] Admin UI integration for status display
+  - [ ] Real-time instance status tracking
+  - [ ] Logging and alerting for instance failures
+  - [ ] Integration with external monitoring tools
 
-- [ ] **Logging & Audit**
-  - [ ] Instance creation/deletion logs
-  - [ ] User-specific access logs
-  - [ ] Resource usage logs
+- [ ] **Operational Enhancements**
+  - [ ] Automated cleanup of idle instances
+  - [ ] Graceful shutdown of active instances
 
 ## 📋 Progress Tracking
 
