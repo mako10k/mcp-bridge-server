@@ -63,10 +63,10 @@ Before starting any implementation, **MUST READ** these design documents in orde
 
 ### Phase 1.5: MCP Lifecycle Management (COMPLETED)
 **Status**: 🟢 COMPLETED
-**Duration**: 2-3 weeks  
+**Duration**: 2-3 weeks
 **Priority**: CRITICAL
 
-#### 1.5.1 Basic Lifecycle Implementation (IN PROGRESS)
+#### 1.5.1 Basic Lifecycle Implementation (COMPLETED)
 - [x] **MCPLifecycleManager Foundation**
   - [x] Core type definitions (`src/mcp/lifecycle/types.ts`)
   - [x] Lifecycle mode definitions (Global/User/Session)
@@ -89,7 +89,7 @@ Before starting any implementation, **MUST READ** these design documents in orde
   - [ ] User-specific maximum instance limits
   - [ ] Session-specific maximum instance limits
   - [ ] Instance timeout functionality
-  - [x] Resource monitoring integration
+  - [ ] Resource monitoring integration
 
 - [ ] **Security Enhancement**
   - [x] Path injection attack prevention
@@ -98,14 +98,14 @@ Before starting any implementation, **MUST READ** these design documents in orde
 
 #### 1.5.3 Monitoring & Operations (PENDING)
 - [ ] **Instance Monitoring**
-  - [x] Instance metrics collection
-  - [x] Automatic cleanup functionality
+  - [ ] Instance metrics collection
+  - [ ] Automatic cleanup functionality
   - [ ] Admin UI integration for status display
 
 - [ ] **Logging & Audit**
   - [ ] Instance creation/deletion logs
   - [ ] User-specific access logs
-  - [x] Resource usage logs
+  - [ ] Resource usage logs
 
 ## 📋 Progress Tracking
 
@@ -161,21 +161,21 @@ src/
 ## 🛡️ Security Checklist
 
 Before implementing any feature, verify:
-- [x] Input validation (Zod schemas)
-- [x] SQL injection prevention
-- [x] Path traversal prevention
-- [x] Command injection prevention
-- [x] Proper authorization checks
-- [x] Secure token handling
+- [ ] Input validation (Zod schemas)
+- [ ] SQL injection prevention
+- [ ] Path traversal prevention
+- [ ] Command injection prevention
+- [ ] Proper authorization checks
+- [ ] Secure token handling
 - [ ] HTTPS enforcement in production
-- [x] Rate limiting considerations
+- [ ] Rate limiting considerations
 
 ## 📈 Success Metrics
 
 ### Phase 1 Success Criteria
-- [x] Server enforces localhost binding when auth is disabled
-- [x] Configuration system supports authentication settings
-- [x] Security status API returns accurate information
+- [ ] Server enforces localhost binding when auth is disabled
+- [ ] Configuration system supports authentication settings
+- [ ] Security status API returns accurate information
 - [ ] All tests pass
 
 ### Overall Success Criteria
