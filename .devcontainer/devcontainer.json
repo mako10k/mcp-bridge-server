@@ -1,0 +1,28 @@
+{
+  "name": "MCP Bridge Server",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "vscode"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next"
+      ]
+    }
+  },
+  "postCreateCommand": "npm install",
+  "remoteUser": "vscode",
+  "remoteEnv" : {
+    "GOOGLE_API_KEY": "${{ secrets.GOOGLE_API_KEY }}",
+    "GOOGLE_CX": "${{ secrets.GOOGLE_CX }}",
+    "GITHUB_TOKEN": "${{ secrets._GITHUB_TOKEN }}"
+  }
+}
