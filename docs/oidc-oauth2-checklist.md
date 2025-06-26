@@ -139,7 +139,11 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
 - [x] OpenID Connect Discovery 対応
 - [x] カスタムプロバイダー対応
 
+<<<<<<< HEAD
 ## Phase 3: API保護とRBAC 🟢
+=======
+## Phase 3: API保護とRBAC ⏳
+>>>>>>> main
 
 ### 3.1 認証ミドルウェア
 - [x] `src/middleware/auth-middleware.ts` - JWT検証ミドルウェア
@@ -209,12 +213,21 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
 ## UI統合 🎨
 
 ### Admin UI (React)
+<<<<<<< HEAD
 - [x] `admin-ui/src/contexts/AuthContext.tsx` - 認証状態管理
 - [x] `admin-ui/src/components/LoginPage.tsx` - ログイン画面
 - [x] `admin-ui/src/components/UserProfile.tsx` - ユーザープロフィール
 - [x] `admin-ui/src/hooks/useAuth.ts` - 認証フック
 - [x] 保護されたルートの実装
 - [x] ログイン/ログアウト UI
+=======
+- [ ] `admin-ui/src/contexts/AuthContext.tsx` - 認証状態管理
+- [ ] `admin-ui/src/components/LoginPage.tsx` - ログイン画面
+- [ ] `admin-ui/src/components/UserProfile.tsx` - ユーザープロフィール
+- [ ] `admin-ui/src/hooks/useAuth.ts` - 認証フック
+- [ ] 保護されたルートの実装
+- [ ] ログイン/ログアウト UI
+>>>>>>> main
 
 ## セキュリティ強化 🔒
 

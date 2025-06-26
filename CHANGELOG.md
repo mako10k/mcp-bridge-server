@@ -26,10 +26,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Structured logging with multiple severity levels
   - Request/response logging for better debugging
   - Server operation logs with timestamps
+- **Daemon Management** - Added a new script (`src/daemon.ts`) to manage the MCP Bridge Server as a background process.
+  - Commands: `start`, `stop`, `restart`.
+- **Codespaces Compatibility** - Introduced `.devcontainer/devcontainer.json` for seamless development in GitHub Codespaces.
+  - Automatically installs dependencies and configures the environment.
+  - Supports secure environment variable injection via Codespaces secrets.
 
 ### Changed
 - **Global Settings UI** - Reorganized interface with dedicated MCP configuration section
 - **User Experience** - Added comprehensive setup guides with latest configuration patterns
+- **Version Update** - Updated project version to `1.5.0`.
 
 ### Improved
 - **Documentation Integration** - Real-time links to latest MCP client documentation
