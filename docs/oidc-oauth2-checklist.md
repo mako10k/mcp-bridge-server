@@ -318,4 +318,26 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
 
 ---
 
+## Next Tasks and Reorganization Memo (2025-06-26)
+
+### High Priority
+- Add unit tests for authentication config and JWT utilities
+- Add tests for user config API
+- Introduce input validation and sanitization using Zod
+- Expand documentation (README, API, environment variables, provider examples)
+- Update Dockerfile/docker-compose for authentication support
+
+### Medium Priority
+- Enhance session/user/token management (Phase 4)
+- Security and performance tests for production environment
+- API documentation using OpenAPI/Swagger
+
+### Low Priority
+- User UI (dedicated user interface)
+- E2E and integration test automation
+
+---
+
+From now on, use this list as a basis for creating concrete checklists and tracking progress for each task.
+
 **最終更新**: 2025年6月24日
