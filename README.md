@@ -465,20 +465,46 @@ npm test
 npm run dev & cd admin-ui && npm run dev
 ```
 
-## Daemon Management
+## Daemon Mode & Log Management
 
-The MCP Bridge Server now supports daemon mode for background execution. Use the following commands:
+You can run the MCP Bridge Server as a background daemon using the built-in daemon manager:
 
 ```bash
-# Start the daemon
-node src/daemon.js start
-
-# Stop the daemon
-node src/daemon.js stop
-
-# Restart the daemon
-node src/daemon.js restart
+npm run start:daemon      # Start as a background daemon
+npm run stop:daemon       # Stop the daemon
+npm run restart:daemon    # Restart the daemon
+npm run status:daemon     # Show daemon status (PID)
 ```
+
+### Log Viewing (tail compatible)
+
+The daemon writes stdout/stderr to `/var/run/mcp-bridge-server.log`.
+You can view logs with tail-like options using the daemon script:
+
+```bash
+node dist/src/daemon.js log           # Show the last 20 lines of the log
+node dist/src/daemon.js log -n 50     # Show the last 50 lines
+node dist/src/daemon.js log -f        # Follow the log (like tail -f)
+node dist/src/daemon.js log -f -n 100 # Show last 100 lines and follow
+```
+
+- The default for `-n` is 20 lines.
+- Log file location: `/var/run/mcp-bridge-server.log`
+
+## Admin UI Daemon Management
+
+You can manage the Admin UI as a background daemon from the project root:
+
+```bash
+npm run ui:start:daemon      # Start Admin UI as a background daemon
+npm run ui:stop:daemon       # Stop the Admin UI daemon
+npm run ui:restart:daemon    # Restart the Admin UI daemon
+npm run ui:status:daemon     # Show Admin UI daemon status (PID)
+npm run ui:log -- -f -n 50   # View Admin UI logs (tail compatible)
+```
+
+- Log file: `/var/run/mcp-bridge-admin-ui.log`
+- The `-n` option defaults to 20 lines.
 
 ## Codespaces Setup
 

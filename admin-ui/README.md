@@ -45,6 +45,21 @@ You can also manually specify the API base URL by setting the `VITE_API_BASE_URL
 VITE_API_BASE_URL=http://localhost:3002 npm run dev
 ```
 
+## Daemon Mode & Log Management
+
+You can run the Admin UI as a background daemon using the built-in daemon manager:
+
+```bash
+npm run start:daemon      # Start as a background daemon
+npm run stop:daemon       # Stop the daemon
+npm run restart:daemon    # Restart the daemon
+npm run status:daemon     # Show daemon status (PID)
+npm run log -- -f -n 50   # View logs (tail compatible)
+```
+
+- The daemon writes stdout/stderr to `/var/run/mcp-bridge-admin-ui.log`.
+- The default for `-n` is 20 lines.
+
 ## Technologies
 
 - **React 18**: Modern React with hooks and function components

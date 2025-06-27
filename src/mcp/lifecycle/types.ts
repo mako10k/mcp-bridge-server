@@ -27,8 +27,8 @@ export interface ResourceLimits {
  */
 export interface MCPServerConfig {
   name: string;
-  command: string;
-  args: string[];
+  command?: string;
+  args?: string[];
   lifecycle: LifecycleMode;
   requireAuth: boolean;
   pathTemplates?: Record<string, string>;

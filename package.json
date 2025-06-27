@@ -26,7 +26,21 @@
     "docker:run": "./docker/build.sh --action run",
     "docker:run:dev": "./docker/build.sh --action run --env development",
     "docker:stop": "./docker/build.sh --action stop",
-    "docker:clean": "./docker/build.sh --action clean"
+    "docker:clean": "./docker/build.sh --action clean",
+    "start:daemon": "node ./src/daemon.cjs start",
+    "stop:daemon": "node ./src/daemon.cjs stop",
+    "restart:daemon": "node ./src/daemon.cjs restart",
+    "status:daemon": "[ -f /tmp/mcp-bridge-server.pid ] && echo Running PID $(cat /tmp/mcp-bridge-server.pid) || echo Not running",
+    "log:daemon": "node ./src/daemon.cjs log",
+    "ui:start:daemon": "cd admin-ui && npm run start:daemon",
+    "ui:stop:daemon": "cd admin-ui && npm run stop:daemon",
+    "ui:restart:daemon": "cd admin-ui && npm run restart:daemon",
+    "ui:status:daemon": "cd admin-ui && npm run status:daemon",
+    "ui:log": "cd admin-ui && npm run log --",
+    "ui:install": "cd admin-ui && npm install",
+    "ui:build": "cd admin-ui && npm run build",
+    "ui:dev": "cd admin-ui && npm run dev",
+    "ui:preview": "cd admin-ui && npm run preview"
   },
   "keywords": [
     "mcp",

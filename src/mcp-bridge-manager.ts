@@ -8,7 +8,8 @@ import { MCPLifecycleManager } from './mcp/lifecycle/mcp-lifecycle-manager.js';
 import { AuthContextManager } from "./auth/context/auth-context.js";
 import { SessionManager } from './auth/managers/session-manager';
 import { UserManager } from './auth/managers/user-manager';
-import { MCPServerStatus, MCPServerStatusInfo, MCPConnection, NamespacedTool, ToolConflict } from './mcp/mcp-bridge-types';
+import { IBridgeToolRegistry } from './bridge-tool-registry';
+import * as express from 'express';
 
 // Server status enumeration
 export enum MCPServerStatus {
@@ -1053,21 +1054,29 @@ export class MCPBridgeManager {
    * Get or create an MCP server instance with authentication/session context
    */
   async getOrCreateInstanceWithContext(serverId: string, req: express.Request) {
-    const serverConfig = this.getServerConfig(serverId);
+    const serverConfig = this.getServerConfig(serverId) as MCPServerConfig;
     const context = this.authContextManager.extractContext(req);
     // セッション情報を付与
-    if (req.sessionID) {
-      context.sessionId = req.sessionID;
-      const session = this.sessionManager.getSession(req.sessionID);
+    if ((req as any).sessionID) {
+      context.sessionId = (req as any).sessionID;
+      const session = this.sessionManager.getSession((req as any).sessionID);
       if (session) {
         context.userId = session.userId;
       }
     }
     // ユーザー情報を付与
-    if (req.user) {
-      context.userId = req.user.id;
-      context.userEmail = req.user.email;
+    if ((req as any).user) {
+      context.userId = (req as any).user.id;
+      context.userEmail = (req as any).user.email;
     }
     return this.lifecycleManager.getOrCreateInstance(serverConfig, context);
+  }
+
+  // getServerConfigの代替ロジック
+  private getServerConfig(serverId: string) {
+    if (!this.config) throw new Error('No config loaded');
+    const found = this.config.servers.find(s => s.name === serverId);
+    if (!found) throw new Error(`Server config not found: ${serverId}`);
+    return found;
   }
 }

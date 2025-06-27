@@ -8,7 +8,13 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "vite preview",
+    "start:daemon": "node ./daemon.cjs start",
+    "stop:daemon": "node ./daemon.cjs stop",
+    "restart:daemon": "node ./daemon.cjs restart",
+    "status:daemon": "[ -f /var/run/mcp-bridge-admin-ui.pid ] && echo Running PID $(cat /var/run/mcp-bridge-admin-ui.pid) || echo Not running",
+    "log": "node ./daemon.cjs log"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",

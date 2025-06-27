@@ -29,6 +29,8 @@ export const MCPServerConfigSchema = z.object({
   timeout: z.number().default(30000),
   restartOnFailure: z.boolean().default(true),
   maxRestarts: z.number().default(3),
+  lifecycle: z.enum(['global', 'user', 'session']).default('global'),
+  requireAuth: z.boolean().default(false),
 }).refine((data) => {
   // Validation: STDIO transport requires command
   if (data.transport === 'stdio') {
@@ -151,6 +153,8 @@ export function getDefaultConfig(): MCPConfig {
         timeout: 30000,
         restartOnFailure: true,
         maxRestarts: 3,
+        lifecycle: 'global',
+        requireAuth: false,
       },
       {
         name: 'brave-search',
@@ -164,6 +168,8 @@ export function getDefaultConfig(): MCPConfig {
         timeout: 30000,
         restartOnFailure: true,
         maxRestarts: 3,
+        lifecycle: 'global',
+        requireAuth: false,
       },
       {
         name: 'example-sse-server',
@@ -173,6 +179,8 @@ export function getDefaultConfig(): MCPConfig {
         timeout: 30000,
         restartOnFailure: true,
         maxRestarts: 3,
+        lifecycle: 'global',
+        requireAuth: false,
       },
       {
         name: 'example-http-server',
@@ -185,6 +193,8 @@ export function getDefaultConfig(): MCPConfig {
         timeout: 30000,
         restartOnFailure: true,
         maxRestarts: 3,
+        lifecycle: 'global',
+        requireAuth: false,
       },
     ],
     global: {
