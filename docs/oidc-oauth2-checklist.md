@@ -114,7 +114,7 @@ MCP ライフサイクルマネージャーおよびリソース監視機能の�
 - [x] `src/routes/user-config.ts` - ユーザー設定APIエンドポイント
   - [x] 権限チェック統合
   - [x] エラーハンドリング
-  - [ ] API テスト
+  - [x] API テスト
 
 ### 2.1 Google OAuth2
 - [x] `src/auth/providers/google-provider.ts`
