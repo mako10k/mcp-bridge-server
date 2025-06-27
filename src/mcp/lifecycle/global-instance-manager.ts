@@ -241,8 +241,8 @@ export class GlobalInstanceManager extends EventEmitter implements InstanceManag
 
     const resolved = this.templateResolver.validateAndResolveConfig(
       {
-        command: config.command,
-        args: config.args,
+        command: config.command!,
+        args: config.args!,
         env: config.env,
         workingDirectory: config.workingDirectory,
         pathTemplates: config.pathTemplates

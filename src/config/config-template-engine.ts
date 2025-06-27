@@ -97,7 +97,9 @@ export class ConfigTemplateEngine {
       enabled: true,
       timeout: 30000,
       restartOnFailure: true,
-      maxRestarts: 3
+      maxRestarts: 3,
+      lifecycle: template.adminControlled.lifecycle,
+      requireAuth: template.adminControlled.requireAuth
     };
 
     for (const [key, value] of Object.entries(userSettings)) {

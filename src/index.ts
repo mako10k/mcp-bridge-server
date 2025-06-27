@@ -10,11 +10,6 @@ import { MCPHttpServer } from './mcp-http-server.js';
 import { logger } from './utils/logger.js';
 import { Server } from 'http';
 import net from 'net';
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
->>>>>>> main
 import { generateKeyPairSync } from 'crypto';
 
 // Import route handlers
@@ -46,10 +41,6 @@ import { GoogleProvider } from './auth/providers/google-provider.js';
 import { AzureProvider } from './auth/providers/azure-provider.js';
 import { GitHubProvider } from './auth/providers/github-provider.js';
 import { GenericOIDCProvider } from './auth/providers/generic-oidc.js';
-<<<<<<< HEAD
-=======
->>>>>>> 0b80467 (feat(security): add helmet-based security headers)
->>>>>>> main
 
 // Server instance reference for restart functionality
 let server: Server | null = null;
@@ -77,11 +68,6 @@ app.use(express.json());
 // Initialize MCP Bridge Manager and Tool Registry
 const mcpManager = new MCPBridgeManager();
 const toolRegistry = new BridgeToolRegistry(mcpManager, mcpConfig, configPath);
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
->>>>>>> main
 const authManager = new AuthManager();
 const authContextManager = new AuthContextManager();
 app.use(createAuthContextMiddleware(authContextManager));
@@ -222,10 +208,6 @@ authConfigManager.on('reloaded', async (newConfig) => {
   logger.info('Authentication configuration reloaded');
 });
 
-<<<<<<< HEAD
-=======
->>>>>>> 0b80467 (feat(security): add helmet-based security headers)
->>>>>>> main
 // Set reference to the tool registry
 mcpManager.setToolRegistry(toolRegistry);
 

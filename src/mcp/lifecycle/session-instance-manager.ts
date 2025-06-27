@@ -331,8 +331,8 @@ export class SessionInstanceManager extends EventEmitter implements InstanceMana
 
     const resolved = this.templateResolver.validateAndResolveConfig(
       {
-        command: config.command,
-        args: config.args,
+        command: config.command!,
+        args: config.args!,
         env: config.env,
         workingDirectory: config.workingDirectory,
         pathTemplates: config.pathTemplates

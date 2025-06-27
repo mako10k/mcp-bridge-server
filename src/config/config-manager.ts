@@ -15,7 +15,8 @@ import * as chokidar from 'chokidar';
 import { EventEmitter } from 'events';
 import { z } from 'zod';
 import { logger } from '../utils/logger.js';
-import { MCPConfig, MCPConfigSchema, expandEnvVarsInObject, getDefaultConfig } from './mcp-config.js';
+import { MCPConfig, MCPConfigSchema, getDefaultConfig } from './mcp-config.js';
+import { expandEnvVarsInObject } from './env-expand.js';
 
 // Event types for configuration changes
 export enum ConfigEventType {
