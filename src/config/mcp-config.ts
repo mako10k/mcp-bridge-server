@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../utils/logger.js';
 import { AuthConfigSchema } from './auth-config.js';
+import { expandEnvVars, expandEnvVarsInObject } from './env-expand.js';
 
 // Zod schema for MCP server configuration
 export const MCPServerConfigSchema = z.object({
@@ -248,43 +249,4 @@ export function saveMCPConfig(config: MCPConfig, configPath: string): void {
  */
 export function getEnabledServers(config: MCPConfig): MCPServerConfig[] {
   return config.servers.filter(server => server.enabled);
-}
-
-/**
- * Function to expand environment variables
- * Replaces strings in the format ${VAR} with the value of the environment variable
- * @param value String to expand
- * @returns String with environment variables expanded
- */
-export function expandEnvVars(value: string): string {
-  return value.replace(/\${([^}]+)}/g, (match, varName) => {
-    return process.env[varName] || match; // Return the original string if the environment variable doesn't exist
-  });
-}
-
-/**
- * Recursively expand environment variables in an object
- * @param obj Object to expand
- * @returns Object with environment variables expanded
- */
-export function expandEnvVarsInObject(obj: Record<string, any>): Record<string, any> {
-  const result: Record<string, any> = {};
-  
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === 'string') {
-      result[key] = expandEnvVars(value);
-    } else if (Array.isArray(value)) {
-      result[key] = value.map(item => 
-        typeof item === 'string' ? expandEnvVars(item) : 
-        typeof item === 'object' && item !== null ? expandEnvVarsInObject(item) : 
-        item
-      );
-    } else if (typeof value === 'object' && value !== null) {
-      result[key] = expandEnvVarsInObject(value);
-    } else {
-      result[key] = value;
-    }
-  }
-  
-  return result;
 }

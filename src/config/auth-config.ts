@@ -2,7 +2,7 @@ import fs from 'fs';
 import { EventEmitter } from 'events';
 import { z } from 'zod';
 import { logger } from '../utils/logger.js';
-import { expandEnvVarsInObject } from './mcp-config.js';
+import { expandEnvVarsInObject } from './env-expand.js';
 
 export const AuthProviderSchema = z.object({
   type: z.enum(['google', 'azure', 'github', 'oidc']),
