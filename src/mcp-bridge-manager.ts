@@ -5,11 +5,11 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { logger } from './utils/logger.js';
 import { MCPServerConfig, loadMCPConfig, MCPConfig, getEnabledServers } from './config/mcp-config.js';
 import { MCPLifecycleManager } from './mcp/lifecycle/mcp-lifecycle-manager.js';
-import { MCPInstanceContext } from './mcp/lifecycle/types.js';
-import crypto from 'crypto';
-import { IBridgeToolRegistry } from './bridge-tool-registry.js';
-
 import { AuthContextManager } from "./auth/context/auth-context.js";
+import { SessionManager } from './auth/managers/session-manager';
+import { UserManager } from './auth/managers/user-manager';
+import { MCPServerStatus, MCPServerStatusInfo, MCPConnection, NamespacedTool, ToolConflict } from './mcp/mcp-bridge-types';
+
 // Server status enumeration
 export enum MCPServerStatus {
   CONNECTED = 'connected',      // Successfully connected
@@ -57,6 +57,8 @@ export class MCPBridgeManager {
   private toolRegistry: IBridgeToolRegistry | null = null;
   private lifecycleManager = new MCPLifecycleManager();
   private authContextManager = new AuthContextManager();
+  private sessionManager = new SessionManager();
+  private userManager = new UserManager();
   private retryTimeouts: Map<string, NodeJS.Timeout> = new Map();
   
   // Default retry configuration
@@ -1045,5 +1047,27 @@ export class MCPBridgeManager {
       logger.error('Error reloading configuration:', error);
       throw new Error(`Failed to reload configuration: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /**
+   * Get or create an MCP server instance with authentication/session context
+   */
+  async getOrCreateInstanceWithContext(serverId: string, req: express.Request) {
+    const serverConfig = this.getServerConfig(serverId);
+    const context = this.authContextManager.extractContext(req);
+    // セッション情報を付与
+    if (req.sessionID) {
+      context.sessionId = req.sessionID;
+      const session = this.sessionManager.getSession(req.sessionID);
+      if (session) {
+        context.userId = session.userId;
+      }
+    }
+    // ユーザー情報を付与
+    if (req.user) {
+      context.userId = req.user.id;
+      context.userEmail = req.user.email;
+    }
+    return this.lifecycleManager.getOrCreateInstance(serverConfig, context);
   }
 }
