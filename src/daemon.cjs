@@ -7,6 +7,7 @@ const LOG_DIR = '/tmp';
 const PID_FILE = join(PID_DIR, 'mcp-bridge-server.pid');
 const LOG_FILE = join(LOG_DIR, 'mcp-bridge-server.log');
 const SERVER_SCRIPT = join(__dirname, '..', 'dist', 'src', 'index.js');
+const ROOT_DIR = join(__dirname, '..');
 
 function isProcessRunning(pid) {
   try {
@@ -33,7 +34,7 @@ function startDaemon() {
   const child = spawn('node', [SERVER_SCRIPT], {
     detached: true,
     stdio: ['ignore', out, err],
-    cwd: __dirname
+    cwd: ROOT_DIR // Use project root so config is found
   });
   writeFileSync(PID_FILE, `${child.pid}`);
   child.unref();
