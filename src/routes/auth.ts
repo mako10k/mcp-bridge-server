@@ -173,6 +173,9 @@ export const getUserInfoHandler = (context: AuthRouteContext) =>
     try {
       const sessionId = req.cookies?.session_id || req.headers.authorization?.replace('Bearer ', '');
 
+      // Log incoming request details
+      logger.info(`Incoming request to /auth/user: sessionId=${sessionId}, cookies=${JSON.stringify(req.cookies)}, headers=${JSON.stringify(req.headers)}`);
+
       if (!sessionId) {
         res.status(401).json({ error: 'Not authenticated' });
         return;

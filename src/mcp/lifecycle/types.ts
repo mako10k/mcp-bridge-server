@@ -1,5 +1,5 @@
 /**
- * @fileoverview Type definitions for MCP server lifecycle management
+ * Types for MCP Lifecycle Management
  * Defines lifecycle modes, server configurations, instance contexts, and management interfaces
  */
 
@@ -35,9 +35,7 @@ export interface MCPServerConfig {
   env?: Record<string, string>;
   resourceLimits?: ResourceLimits;
   workingDirectory?: string;
-  /** User ID to run the server process as */
   uid?: number;
-  /** Group ID to run the server process as */
   gid?: number;
   autoRestart?: boolean;
   maxRetries?: number;

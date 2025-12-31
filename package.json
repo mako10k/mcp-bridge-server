@@ -26,7 +26,14 @@
     "docker:run": "./docker/build.sh --action run",
     "docker:run:dev": "./docker/build.sh --action run --env development",
     "docker:stop": "./docker/build.sh --action stop",
-    "docker:clean": "./docker/build.sh --action clean"
+    "docker:clean": "./docker/build.sh --action clean",
+    "start:server": "if [ -f logs/server.pid ] && ps -p $(cat logs/server.pid) > /dev/null; then echo 'Server already running'; else node dist/src/index.js > logs/server.log 2>&1 & echo $! > logs/server.pid; fi",
+    "reload:server": "npm run stop:server && npm run start:server",
+    "stop:server": "if [ -f logs/server.pid ]; then kill $(cat logs/server.pid) && rm logs/server.pid; else echo 'No PID file found'; fi",
+    "restart:server": "if [ -f logs/server.pid ]; then if ps -p $(cat logs/server.pid) > /dev/null; then echo 'Server already running'; else rm logs/server.pid; fi; fi; npm run start:server",
+    "start:gui": "npm run --prefix admin-ui dev > logs/gui.log 2>&1 & echo $! > logs/gui.pid",
+    "stop:gui": "if [ -f logs/gui.pid ]; then kill $(cat logs/gui.pid) && rm logs/gui.pid; else echo 'No PID file found'; fi",
+    "restart:gui": "npm run stop:gui && npm run start:gui"
   },
   "keywords": [
     "mcp",
@@ -60,6 +67,7 @@
     "@types/express": "^5.0.3",
     "@types/helmet": "^4.0.0",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/ms": "^2.1.0",
     "@types/node": "^24.0.1",
     "@types/pidusage": "^2.0.5",
     "nodemon": "^3.1.10",
@@ -67,7 +75,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.3",
-    "@types/ms": "^2.1.0",
     "chokidar": "^4.0.3",
     "cors": "^2.8.5",
     "express": "^5.1.0",

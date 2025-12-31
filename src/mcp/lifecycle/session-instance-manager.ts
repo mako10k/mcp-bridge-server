@@ -1,6 +1,6 @@
 /**
- * @fileoverview Session instance manager for MCP servers
- * Manages session-specific MCP server instances with per-user/session isolation
+ * SessionInstanceManager
+ * Manages session-specific MCP instances.
  */
 
 import { EventEmitter } from 'events';
@@ -325,8 +325,8 @@ export class SessionInstanceManager extends EventEmitter implements InstanceMana
     const templateVars = this.templateResolver.createTemplateVariables({
       userId: context.userId,
       userEmail: context.userEmail,
-      requestId: context.requestId,
-      timestamp: context.timestamp
+      requestId: context.requestId || 'default-request-id',
+      timestamp: context.timestamp || new Date()
     });
 
     const resolved = this.templateResolver.validateAndResolveConfig(

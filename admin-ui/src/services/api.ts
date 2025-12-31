@@ -43,25 +43,16 @@ let API_BASE_URL: string;
 if (import.meta.env.MODE === 'production') {
   API_BASE_URL = ''; // In production, assume same origin
 } else {
-  // Development - try to detect or use env var or default
-  API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
-  
-  // Try to auto-detect the correct port in development
-  detectMCPBridgePort().then((detectedURL) => {
-    if (detectedURL !== API_BASE_URL) {
-      API_BASE_URL = detectedURL;
-      // Update axios instance with new base URL
-      api.defaults.baseURL = API_BASE_URL;
-      console.log(`Updated API base URL to: ${API_BASE_URL}`);
-    }
-  }).catch((error) => {
-    console.warn('Failed to auto-detect MCP Bridge Server port:', error);
-  });
+  // Development - use VITE_API_BASE_URL or fallback to default
+  API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+
+  // Log the selected API base URL
+  console.log(`Using API base URL: ${API_BASE_URL}`);
 }
 
+// Create axios instance with the base URL
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },

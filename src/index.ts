@@ -305,6 +305,38 @@ registerErrorHandler(app);
 const mcpHttpServer = new MCPHttpServer(mcpManager);
 mcpHttpServer.registerWithApp(app);
 
+// Move debug logging to ensure it executes after all routes are registered
+logger.info('Starting route registration debug logging...');
+(app._router.stack as Array<{ route?: { path: string; methods: Record<string, boolean> }; name?: string; handle?: { stack: Array<{ route?: { path: string; methods: Record<string, boolean> } }> } }>).forEach((middleware) => {
+  if (middleware.route) { // Routes registered directly on the app
+    logger.info(`Registered route: ${Object.keys(middleware.route.methods).join(', ').toUpperCase()} ${middleware.route.path}`);
+  } else if (middleware.name === 'router') { // Routes added as router middleware
+    middleware.handle?.stack.forEach((handler) => {
+      if (handler.route) {
+        logger.info(`Registered route: ${Object.keys(handler.route.methods).join(', ').toUpperCase()} ${handler.route.path}`);
+      }
+    });
+  }
+});
+
+// Ensure app._router is defined before accessing its stack
+if (app._router && app._router.stack) {
+  console.log('Registered routes:');
+  app._router.stack.forEach((middleware: { route?: any; name?: string; handle?: { stack: any[] } }) => {
+    if (middleware.route) {
+      console.log(middleware.route);
+    } else if (middleware.name === 'router' && middleware.handle && middleware.handle.stack) {
+      middleware.handle.stack.forEach((handler: { route?: any }) => {
+        if (handler.route) {
+          console.log(handler.route);
+        }
+      });
+    }
+  });
+} else {
+  console.error('app._router is undefined or does not have a stack.');
+}
+
 // Start the server
 async function startServer() {
   try {
