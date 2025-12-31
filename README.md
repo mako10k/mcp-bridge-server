@@ -465,6 +465,29 @@ npm test
 npm run dev & cd admin-ui && npm run dev
 ```
 
+## Daemon Management
+
+The MCP Bridge Server now supports daemon mode for background execution. Use the following commands:
+
+```bash
+# Start the daemon
+node src/daemon.js start
+
+# Stop the daemon
+node src/daemon.js stop
+
+# Restart the daemon
+node src/daemon.js restart
+```
+
+## Codespaces Setup
+
+This project is fully compatible with GitHub Codespaces. The `.devcontainer/devcontainer.json` file provides the necessary configuration. To get started:
+
+1. Open the repository in Codespaces.
+2. The environment will automatically install dependencies and set up the development environment.
+3. Environment variables like `GOOGLE_API_KEY`, `GOOGLE_CX`, and `GITHUB_TOKEN` are securely passed using Codespaces secrets.
+
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
